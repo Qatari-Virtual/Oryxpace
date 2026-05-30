@@ -1,125 +1,84 @@
-# Oryxpace Operations Hub ✈️
-
-Oryxpace is a premium, high-performance full-stack operations dashboard built for **Qatar Virtual** virtual airline operations. It connects directly to the **real MySQL database** used by the **Oryxie Discord bot** to provide a real-time, unified staff panel.
+# Oryxpace, Virtual Airline Operations Setup Guide
 
 ---
 
-## 🛠️ Technology Stack
+## 1. Project Overview
 
-### Frontend (React Dashboard)
-* **Framework**: React (using Vite for blazing-fast development and build performance)
-* **Routing**: React Router (`react-router-dom`) for fluid, single-page transitions
-* **State Management**: Redux Toolkit (`@reduxjs/toolkit`) for global dashboard settings (sidebar toggle, pilot profile, notification states)
-* **Styling**: Tailwind CSS v4 & DaisyUI for dynamic, premium dark-mode elements (cards, badges, stats grids, form inputs, animations)
-* **Icons**: Lucide React for consistent developer iconography
-
-### Backend (Django API REST)
-* **Framework**: Django REST Framework (Python)
-* **Database Driver**: PyMySQL (A lightweight, pure-Python driver chosen for Windows hosting compatibility without requiring C++ compilers)
-* **Environment Loader**: Python-Dotenv for secure database credential loading
-* **PDF Compiler**: ReportLab (For building, compiling, and streaming binary flight checkride evaluation PDFs)
-
-### Database Layer
-* **Type**: MySQL Database (shared with the **Oryxie Discord Bot** for real-time bi-directional synchronization)
+Oryxpace is a premium, full-stack virtual airline operations hub featuring:
+- **Frontend**: Vite + React SPA (Tailwind CSS v4 + DaisyUI)
+- **Backend API**: Django REST Framework (Python)
+- **Database**: Integrated directly with your existing MySQL Database used by Oryxie.
 
 ---
 
-## ⚡ Core Architecture & Processes
+## 2. Environment Variables Setup (.env)
 
-```
-    ┌──────────────────────┐         ┌────────────────────────┐
-    │ React Frontend (Vite)│         │  Oryxie Discord Bot    │
-    │ (Tailwind v4 / Redux)│         │     (Python Core)      │
-    └──────────┬───────────┘         └───────────┬────────────┘
-               │                                 │
-          HTTP Requests                    Reads/Writes
-         (Axios / JSON)                          │
-               │                                 │
-    ┌──────────▼───────────┐         ┌───────────▼────────────┐
-    │ Django REST Backend  ├─────────►     MySQL Database     │
-    │  (PyMySQL / Raw SQL) │         │ (Pireps, Pilots, Logs) │
-    └──────────────────────┘         └────────────────────────┘
-```
+Create a `.env` file at the root of the project. This file is ignored by git for security. Add the following variables:
 
-### 1. The Optimized Dashboard Process
-* **The Latency Problem**: Querying a remote database hosted online sequentially can create heavy network delays. Making 5 separate queries from a local machine adds up to ~1.0 second of load delay.
-* **The Solution (Single-Query Optimization)**: We consolidated the 4 core counts into **one single query** using SQL subqueries. Django now executes:
-  ```sql
-  SELECT 
-      (SELECT COUNT(*) FROM pireps) as total_pireps,
-      (SELECT COUNT(*) FROM pireps WHERE status = 1) as approved_pireps,
-      (SELECT COUNT(*) FROM pilots) as total_pilots,
-      (SELECT SUM(flighttime) FROM pireps WHERE status = 1) as total_flight_time
-  ```
-* This reduces network round-trips from 5 down to **only 2** (one for stats, one for recent flight logs), making the dashboard load **2.5x faster**!
-
-### 2. Trainee Flight Evaluator Process
-* **Frontend**: Instructors fill out a professional checkride grading sheet (Trainee details, flight date, callsign).
-* **Live Scorecard**: A sticky React scorecard computes points in real-time, displays score percentages, and changes colors based on whether the pilot passes (>=75%) or needs a retake.
-* **Backend Processing**: When "Generate PDF" is clicked, React sends the answers to Django via POST.
-* **Enrichment Engine**: Django reads `backend/api/data/evaluation_templates.json` to check correct answers, calculate points, attach correct/wrong procedures and logs, and passes the payload to a custom binary generator.
-* **Binary Streaming**: Django compiles a beautiful PDF using ReportLab in memory (`io.BytesIO`) and streams the binary blob directly back to the browser. The React frontend intercepts the blob and triggers an instant browser download.
-
-### 3. Unified Assets Serving Process
-* To avoid asset duplication and allow both the frontend (website) and backend (PDF generator/bot embeds) to share images, we created a root `assets/` folder containing your official airline logos.
-* We registered the root assets folder directly into Django's static files directories (`settings.py`):
-  ```python
-  STATICFILES_DIRS = [ BASE_DIR.parent / 'assets' ]
-  ```
-* Any file placed in `Oryxpace/assets/` is automatically served securely by the backend over HTTP under `/static/` (e.g. `http://127.0.0.1:8000/static/Qatar_virtual_logo_white.PNG`).
-
-### 4. Dynamic API Configuration Process
-* To support both local development and production hosting, all React API queries use a dynamic base URL imported from `src/config.js`:
-  ```javascript
-  export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-  ```
-* If hosted online, Vercel will automatically build the site pointing to your CEO's production server URL using the environment variable, but it will fallback gracefully to `127.0.0.1:8000` when running locally!
-
----
-
-## 🔒 Security & Git Protections
-To ensure absolute security when tracking this project on GitHub:
-* A root **`.gitignore`** is implemented. 
-* It **strictly ignores `.env`** files. Your database host, username, and password will **never** be committed or leaked to the public.
-* It ignores Windows local scripts (`*.bat`) and heavy directories (`node_modules/`, `.venv/`), keeping the repository light and clean.
-
----
-
-## 🚀 Installation & Local Setup
-
-### 1. Database Configuration
-Create a `.env` file in the root of the project:
 ```env
+# Backend (MySQL Database Connection)
 DB_HOST=your-mysql-host
 DB_USER=your-mysql-username
 DB_PASSWORD=your-mysql-password
 DB_NAME=your-mysql-database
-```
+DB_PORT=3306
 
-### 2. Run Locally (Windows)
-Double-click the **`start_app.bat`** file located in the root folder. It will automatically:
-1. Start the Django API server on `http://127.0.0.1:8000`.
-2. Start the Vite React development server on `http://localhost:5173`.
-3. Open your browser to the local site.
+# Frontend (Vite Base URL)
+# Set this to your live Django API URL in production (e.g. https://api.qatarivirtual.xyz)
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
 
 ---
 
-## 🌐 Production Deployment Guide
+## 3. Backend Setup & Run (Django)
 
-### Backend (Django) ➔ Render / VPS
-1. Connect your GitHub repository to **Render** (or your own server).
-2. Point the service to the `backend` subdirectory.
-3. Configure the environment variables (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `CORS_ALLOW_ALL_ORIGINS=True`) in your host's dashboard.
-4. Set the start command:
+Make sure you have **Python 3.10+** installed.
+
+1. Move into the backend directory:
    ```bash
-   gunicorn backend.wsgi
+   cd backend
    ```
+2. Create and activate a Python virtual environment:
+   ```bash
+   python -m venv .venv
+   # Windows:
+   ..\.venv\Scripts\activate
+   # Linux/macOS:
+   source ../.venv/bin/activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r ../requirements.txt
+   ```
+4. Start the Django API server:
+   ```bash
+   python manage.py runserver
+   ```
+   *(Server starts at `http://127.0.0.1:8000/`)*
 
-### Frontend (React) ➔ Vercel / Netlify
-1. Connect your GitHub repository to **Vercel**.
-2. Point the build to the `frontend` subdirectory.
-3. Add the build-time environment variable pointing to your live backend server:
-   ```env
-   VITE_API_BASE_URL=https://your-backend-api.onrender.com
+---
+
+## 4. Frontend Setup & Run (React)
+
+Make sure you have **Node.js 18+** installed.
+
+1. Move into the frontend directory:
+   ```bash
+   cd frontend
    ```
-4. Deploy! Vercel will build and serve your static React application on a global, free CDN.
+2. Install package dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the Vite React development server:
+   ```bash
+   npm run dev
+   ```
+   *(Server starts at `http://localhost:5173/`)*
+
+---
+
+## 5. Production Deployment
+
+- **Frontend**: The React app is static-build friendly. Run `npm run build` inside `frontend/` and deploy the `dist/` folder to **Vercel**, **Netlify**, or any static web host. Make sure to set `VITE_API_BASE_URL` in your build environment.
+- **Backend**: Deploy the `backend/` directory to **Render**, **Koyeb**, or any VPS. Configure your environment variables in your server hosting dashboard.
