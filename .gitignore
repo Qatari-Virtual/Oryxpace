@@ -1,0 +1,36 @@
+# Root .gitignore for Oryxpace
+
+# Environment Files (CRITICAL: Do not commit sensitive credentials!)
+.env
+.env.local
+.env.production
+.env.development
+
+# Python Virtual Environments & Packages
+.venv/
+venv/
+ENV/
+env/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Node / React Files
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+
+# Databases & Cache
+db.sqlite3
+*.log
+
+# IDE & OS Files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.bat

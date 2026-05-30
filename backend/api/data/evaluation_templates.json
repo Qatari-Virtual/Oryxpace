@@ -1,0 +1,62 @@
+[
+  {
+    "id": "FP2",
+    "category": "Engine Start Procedure",
+    "points": 1,
+    "question": "When were both engines started?",
+    "options": [
+      "Both started one by one",
+      "Both started together"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "correctStatement": "Correct Engine starting procedure ✅",
+    "wrongStatement": "Both engines should start one by one not together.",
+    "procedureDetails": "First Start Engine 1, wait for N1 to become 20% (will show as a green box), then start the 2nd Engine and wait for it to also reach 20% N1 (green box)."
+  },
+  {
+    "id": "FP1",
+    "category": "Beacon and NAV Light Procedure",
+    "points": 1,
+    "question": "When were the Beacon and NAV Lights turned on?",
+    "options": [
+      "Lights turned on when the 1st engine was started",
+      "Lights turned on after both engines were started"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "correctStatement": "Correct Beacon and NAV Light Procedure ✅",
+    "wrongStatement": "Both lights should be turned on when the 1st engine is started.",
+    "procedureDetails": "Beacon and NAV lights must be turned on immediately prior to starting the first engine to indicate the aircraft is about to move or start engines."
+  },
+  {
+    "id": "FP3",
+    "category": "Taxi Speed - Straight Line",
+    "points": 1,
+    "question": "What was the ground speed during straight line taxiing?",
+    "options": [
+      "Ground speed was less than or equal to 25 knots",
+      "Ground speed exceeded 25 knots"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "correctStatement": "Correct Taxiing Speed ✅",
+    "wrongStatement": "Ground speed should be less than or equal to 25 knots during straight line.",
+    "procedureDetails": "During straight line taxiing, maintain a ground speed of 25 knots or less to ensure safe aircraft control."
+  },
+  {
+    "id": "FP4",
+    "category": "Taxi Speed - 90-Degree Turns",
+    "points": 1,
+    "question": "What was the ground speed during 90-degree turns?",
+    "options": [
+      "Ground speed was less than 10 knots",
+      "Ground speed was 10 knots or more"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "correctStatement": "Correct Turning Speed ✅",
+    "wrongStatement": "Ground speed should be less than 10 knots during 90 degree turns.",
+    "procedureDetails": "When performing a 90-degree turn, ground speed should be reduced to less than 10 knots to prevent excessive side loads on the landing gear and maintain safety."
+  }
+]
