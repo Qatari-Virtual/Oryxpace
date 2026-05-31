@@ -98,14 +98,14 @@ def generate_evaluation_pdf(data):
     styles = getSampleStyleSheet()
     
     # Set up distinct palette
-    primary_color = colors.HexColor("#0f172a")    # Slate-900 (Deep Charcoal)
-    secondary_color = colors.HexColor("#0284c7")  # Sky-600 (Aero Blue)
+    primary_color = colors.HexColor("#8B1538")    # Qatari Maroon
+    secondary_color = colors.HexColor("#b04a69")  # Rose Gold
     success_color = colors.HexColor("#10b981")    # Emerald-500
     danger_color = colors.HexColor("#f97316")     # Orange-500 (Safety Alert)
-    gold_color = colors.HexColor("#b45309")       # Amber-700
-    gold_bg_color = colors.HexColor("#fef3c7")    # Amber-100
-    light_bg = colors.HexColor("#f8fafc")         # Slate-50
-    border_color = colors.HexColor("#cbd5e1")     # Slate-300
+    gold_color = colors.HexColor("#b0802d")       # Oryx Metallic Gold
+    gold_bg_color = colors.HexColor("#fcf5e3")    # Soft Gold Cream
+    light_bg = colors.HexColor("#fdf8f9")         # Rose-tinted off-white
+    border_color = colors.HexColor("#ead9df")     # Light rose border
     
     # Register/Update Styles
     title_style = ParagraphStyle(
@@ -211,7 +211,7 @@ def generate_evaluation_pdf(data):
     total_score = sum(item.get("points", 1) for item in data["answers"])
     score_earned = sum(item.get("points", 1) for item in data["answers"] if item.get("is_correct", False))
     grade_percentage = (score_earned / total_score * 100) if total_score > 0 else 0
-    passed = grade_percentage >= 75.0
+    passed = data.get("final_decision", "PASS").upper() == "PASS"
     
     # Document Header
     story.append(Paragraph("FLIGHT EVALUATION REPORT", title_style))
@@ -260,8 +260,8 @@ def generate_evaluation_pdf(data):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         # Styling the Score Box
-        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#f1f5f9")),
-        ('BOX', (1,0), (1,0), 1, colors.HexColor("#cbd5e1")),
+        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#fdf8f9")),
+        ('BOX', (1,0), (1,0), 1, colors.HexColor("#ead9df")),
         ('LEFTPADDING', (1,0), (1,0), 8),
         ('RIGHTPADDING', (1,0), (1,0), 8),
         ('TOPPADDING', (1,0), (1,0), 10),

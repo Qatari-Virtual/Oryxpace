@@ -1,15 +1,65 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: light --default, dark;
+}
+
+@plugin "daisyui/theme" {
+  name: "light";
+  --color-primary: #8B1538;          /* Qatari Maroon */
+  --color-primary-content: #ffffff;
+  --color-secondary: #b04a69;        /* Rose Gold */
+  --color-secondary-content: #ffffff;
+  --color-accent: #b0802d;           /* Oryx Metallic Gold */
+  --color-accent-content: #ffffff;
+  
+  /* Centralized Base Overrides */
+  --color-base-100: #ffffff;         /* Card/Panel bg */
+  --color-base-200: #fdf8f9;         /* Main workspace bg */
+  --color-base-300: #ead9df;         /* Borders/lines */
+  --color-base-content: #1e293b;     /* Core text color */
+}
+
+@plugin "daisyui/theme" {
+  name: "dark";
+  --color-primary: #8B1538;          /* Qatari Maroon */
+  --color-primary-content: #ffffff;
+  --color-secondary: #b04a69;        /* Rose Gold */
+  --color-secondary-content: #ffffff;
+  --color-accent: #b0802d;           /* Oryx Metallic Gold */
+  --color-accent-content: #ffffff;
+
+  /* Centralized Base Overrides */
+  --color-base-100: #ffffff;
+  --color-base-200: #fdf8f9;
+  --color-base-300: #ead9df;
+  --color-base-content: #1e293b;
+}
+
+@theme {
+  --color-primary: #8B1538;          /* Qatari Maroon */
+  --color-primary-content: #ffffff;
+  --color-secondary: #b04a69;        /* Rose Gold */
+  --color-secondary-content: #ffffff;
+  --color-accent: #b0802d;           /* Oryx Metallic Gold */
+  --color-accent-content: #ffffff;
+
+  /* Centralized Custom Brand Colors */
+  --color-brand-bg: #fdf8f9;         /* Rose-tinted off-white page background */
+  --color-brand-card: #ffffff;       /* Pure white card backgrounds */
+  --color-brand-border: #ead9df;     /* Light rose panel borders */
+  --color-brand-text: #8B1538;       /* Primary Maroon text */
+  --color-brand-subtext: #475569;    /* Slate-600 secondary text */
+}
 
 :root {
   font-family: 'Outfit', sans-serif;
 }
 
 body {
-  background-color: #0b0f19; /* Custom dark slate background */
-  color: #f1f5f9;
+  background-color: var(--color-brand-bg);
+  color: var(--color-base-content);
   min-height: 100vh;
   margin: 0;
 }

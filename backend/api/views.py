@@ -171,6 +171,7 @@ def generate_pdf(request):
             "flight_date": data.get("flight_date", datetime.date.today().strftime("%Y-%m-%d")),
             "flight_callsign": data.get("flight_callsign", "QATAR"),
             "general_remarks": data.get("general_remarks", ""),
+            "final_decision": data.get("final_decision", "PASS"),
             "answers": enriched_answers
         }
         
@@ -188,4 +189,34 @@ def generate_pdf(request):
         import traceback
         traceback.print_exc()
         return Response({"error": f"Failed to generate evaluation report: {str(e)}"}, status=500)
+
+@api_view(['GET'])
+def lookup_pilot(request):
+    try:
+        callsign_num = request.GET.get('callsign_num', '').strip()
+        if not callsign_num:
+            return Response({"found": False, "message": "Callsign number is required."})
+            
+        if not callsign_num.isdigit():
+            return Response({"found": False, "message": "Callsign must contain only digits."})
+            
+        padded_num = callsign_num.zfill(3)
+        callsign = f"QRV{padded_num}"
+        
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT name, callsign FROM pilots WHERE callsign = %s AND status = 1", [callsign])
+            row = cursor.fetchone()
+            if row:
+                return Response({
+                    "found": True,
+                    "name": row[0],
+                    "callsign": row[1]
+                })
+            else:
+                return Response({
+                    "found": False,
+                    "message": f"Active pilot with callsign {callsign} not found."
+                })
+    except Exception as e:
+        return Response({"error": f"Failed to lookup pilot: {str(e)}"}, status=500)
 

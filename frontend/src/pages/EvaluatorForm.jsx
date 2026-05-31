@@ -21,6 +21,10 @@ function EvaluatorForm() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [callsignNum, setCallsignNum] = useState('')
+  const [searchingPilot, setSearchingPilot] = useState(false)
+  const [pilotMatched, setPilotMatched] = useState(false)
+  const [finalDecision, setFinalDecision] = useState('')
   
   // Metadata fields
   const [metadata, setMetadata] = useState({
@@ -35,6 +39,58 @@ function EvaluatorForm() {
   // Selected answers state
   // key: question_id, val: { selected_option_index: null, is_other: false, other_text: '', extra_feedback: '', showComments: false }
   const [answers, setAnswers] = useState({})
+
+  // Handle callsign number input changes and reset resolved states to keep UI aligned
+  const handleCallsignInputChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+    setCallsignNum(val)
+    handleMetadataChange('trainee_name', '')
+    handleMetadataChange('trainee_callsign', '')
+    handleMetadataChange('flight_callsign', '')
+    setPilotMatched(false)
+  }
+
+  // Trigger explicit database lookup for pilot details on fetch button click
+  const fetchPilotDetails = () => {
+    if (!callsignNum) return
+    if (!/^\d+$/.test(callsignNum)) {
+      alert('Please enter a valid numeric callsign.')
+      return
+    }
+
+    setSearchingPilot(true)
+    setPilotMatched(false)
+
+    axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${callsignNum}`)
+      .then(response => {
+        if (response.data.found) {
+          handleMetadataChange('trainee_name', response.data.name)
+          handleMetadataChange('trainee_callsign', response.data.callsign)
+          const numPart = response.data.callsign.replace('QRV', '')
+          handleMetadataChange('flight_callsign', `QATAR ${numPart}`)
+          setPilotMatched(true)
+        } else {
+          // If pilot is not found in database, populate fallback values seamlessly
+          handleMetadataChange('trainee_name', 'Trainee Pilot')
+          const padded = callsignNum.padStart(3, '0')
+          handleMetadataChange('trainee_callsign', `QRV${padded}`)
+          handleMetadataChange('flight_callsign', `QATAR ${padded}`)
+          setPilotMatched(false)
+          alert(`Active pilot with callsign QRV${padded} not found in database. Using default fallback details.`);
+        }
+        setSearchingPilot(false)
+      })
+      .catch(err => {
+        console.error(err)
+        // Set standard fallbacks on error to prevent blocking the evaluator
+        handleMetadataChange('trainee_name', 'Trainee Pilot')
+        const padded = callsignNum.padStart(3, '0')
+        handleMetadataChange('trainee_callsign', `QRV${padded}`)
+        handleMetadataChange('flight_callsign', `QATAR ${padded}`)
+        setSearchingPilot(false)
+        setPilotMatched(false)
+      })
+  }
 
   // Fetch rubrics
   useEffect(() => {
@@ -153,6 +209,9 @@ function EvaluatorForm() {
         }
       })
       setAnswers(resetAnswers)
+      setCallsignNum('')
+      setPilotMatched(false)
+      setFinalDecision('')
       setMetadata({
         trainee_name: '',
         trainee_callsign: '',
@@ -164,12 +223,27 @@ function EvaluatorForm() {
     }
   }
 
+  // Auto-initialize FI Final Decision to the system recommendation when all questions are answered
+  useEffect(() => {
+    if (questions.length === 0) return
+    const unanswered = questions.filter(q => answers[q.id]?.selected_option_index === null)
+    if (unanswered.length === 0) {
+      const stats = calculateScore()
+      // Only default it once when first completed
+      if (!finalDecision) {
+        setFinalDecision(stats.percent >= 75.0 ? 'PASS' : 'RETAKE')
+      }
+    } else {
+      setFinalDecision('')
+    }
+  }, [answers, questions])
+
   const handleSubmit = (e) => {
     e.preventDefault()
     
     // Check if metadata fields are filled
-    if (!metadata.trainee_name || !metadata.trainee_callsign || !metadata.flight_callsign) {
-      alert('Please fill out all pilot and flight details in the card above.')
+    if (!metadata.trainee_name || !metadata.trainee_callsign) {
+      alert('Please select a Trainee Callsign and Fetch details in the card above.')
       return
     }
 
@@ -195,6 +269,7 @@ function EvaluatorForm() {
     // Build API payload
     const payload = {
       ...metadata,
+      final_decision: finalDecision,
       answers: Object.values(answers).map(ans => ({
         question_id: ans.question_id,
         selected_option_index: ans.selected_option_index,
@@ -239,18 +314,18 @@ function EvaluatorForm() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
         <span className="loading loading-spinner loading-lg text-primary"></span>
-        <p className="text-slate-400 font-medium animate-pulse">Fetching checklist templates from flight operations server...</p>
+        <p className="text-brand-subtext font-medium animate-pulse">Fetching checklist templates from flight operations server...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="alert alert-error bg-slate-900 border border-slate-800 shadow-xl rounded-2xl flex gap-4 max-w-2xl mx-auto mt-8">
+      <div className="alert alert-error bg-white border border-[#ead9df] shadow-xl rounded-2xl flex gap-4 max-w-2xl mx-auto mt-8">
         <AlertCircle className="w-8 h-8 text-error flex-shrink-0" />
         <div>
-          <h3 className="font-bold text-white">System Error</h3>
-          <p className="text-xs text-slate-400 mt-1">{error}</p>
+          <h3 className="font-bold text-error">System Error</h3>
+          <p className="text-xs text-slate-700 mt-1">{error}</p>
           <p className="text-xs text-slate-500 mt-2">Hint: Run start_app.bat to spin up your Django REST server.</p>
         </div>
       </div>
@@ -265,160 +340,99 @@ function EvaluatorForm() {
       {/* Header Title */}
       <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Trainee Flight Evaluator</h1>
-          <p className="text-slate-400 mt-1">Check replay telemetry and fill out standard procedurals for instant PDF publication.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-brand-text">Trainee Flight Evaluator</h1>
+          <p className="text-brand-subtext mt-1">Check replay telemetry and fill out standard procedurals for instant PDF publication.</p>
         </div>
         
         <button 
           onClick={resetForm}
-          className="btn btn-sm btn-outline border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
+          className="btn btn-sm btn-outline border-brand-border text-slate-600 hover:bg-brand-text hover:text-white hover:border-brand-text"
         >
           <RotateCcw className="w-4 h-4 mr-2" />
           Reset Checklist
         </button>
       </div>
 
-      {/* Floating Live Scorecard Widget */}
-      <div className={`sticky top-4 z-30 shadow-2xl rounded-2xl border transition-all duration-300 ${
-        scoreStats.answeredCount === questions.length
-          ? scoreStats.isPassed 
-            ? 'bg-emerald-950/90 border-emerald-800 backdrop-blur-md text-white' 
-            : 'bg-orange-950/90 border-orange-800 backdrop-blur-md text-white'
-          : 'bg-slate-900/95 border-slate-800 backdrop-blur-md text-white'
-      } p-4 px-6 flex justify-between items-center flex-wrap gap-4`}>
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${
-            scoreStats.answeredCount === questions.length
-              ? scoreStats.isPassed 
-                ? 'bg-emerald-500/25 text-emerald-400' 
-                : 'bg-orange-500/25 text-orange-400'
-              : 'bg-primary/20 text-primary'
-          }`}>
-            <ClipboardCheck className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <h3 className="font-bold text-sm tracking-wide text-slate-300">LIVE EVALUATION SCORECARD</h3>
-            <p className="text-xs text-slate-400">
-              Evaluated {scoreStats.answeredCount} of {questions.length} procedures
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <span className="text-xs font-semibold text-slate-400 block">SCORE PERCENT</span>
-            <span className={`text-2xl font-black ${
-              scoreStats.answeredCount === questions.length
-                ? scoreStats.isPassed ? 'text-emerald-400' : 'text-orange-400'
-                : 'text-primary'
-            }`}>
-              {scoreStats.percent.toFixed(1)}%
-            </span>
-          </div>
-
-          <div className="h-10 w-px bg-slate-800"></div>
-
-          <div className="text-center">
-            <span className="text-xs font-semibold text-slate-400 block">STATUS</span>
-            {scoreStats.answeredCount === questions.length ? (
-              scoreStats.isPassed ? (
-                <span className="badge badge-success font-bold py-2.5 px-3">PASS</span>
-              ) : (
-                <span className="badge badge-warning font-bold py-2.5 px-3">RETAKE</span>
-              )
-            ) : (
-              <span className="badge badge-ghost border-slate-800 text-slate-400 py-2.5 px-3">INCOMPLETE</span>
-            )}
-          </div>
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Trainee & Flight Metadata Card */}
-        <div className="card bg-slate-900 border border-slate-800 shadow-xl rounded-2xl p-6">
+        {/* Trainee Details Card */}
+        <div className="card bg-brand-card border border-brand-border shadow-xl rounded-2xl p-6">
           <div className="flex items-center gap-2 text-primary mb-4 font-bold tracking-wider text-xs">
             <User className="w-4 h-4" />
-            <span>FLIGHT CARD DETAILS</span>
+            <span>TRAINEE DETAILS</span>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Trainee Pilot */}
-            <div className="form-control w-full">
-              <label className="label py-1">
-                <span className="label-text text-slate-300 font-semibold text-xs">TRAINEE NAME</span>
-              </label>
-              <input 
-                type="text" 
-                placeholder="e.g. Ayush" 
-                value={metadata.trainee_name}
-                onChange={e => handleMetadataChange('trainee_name', e.target.value)}
-                className="input input-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800"
-                required
-              />
-            </div>
-
-            {/* Trainee Callsign */}
-            <div className="form-control w-full">
-              <label className="label py-1">
-                <span className="label-text text-slate-300 font-semibold text-xs">TRAINEE CALLSIGN</span>
-              </label>
-              <input 
-                type="text" 
-                placeholder="e.g. QRV108" 
-                value={metadata.trainee_callsign}
-                onChange={e => handleMetadataChange('trainee_callsign', e.target.value.toUpperCase())}
-                className="input input-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800"
-                required
-              />
-            </div>
-
-            {/* Flight Callsign */}
-            <div className="form-control w-full">
-              <label className="label py-1">
-                <span className="label-text text-slate-300 font-semibold text-xs">FLIGHT CALLSIGN (IF)</span>
-              </label>
-              <input 
-                type="text" 
-                placeholder="e.g. QATAR 108 HEAVY" 
-                value={metadata.flight_callsign}
-                onChange={e => handleMetadataChange('flight_callsign', e.target.value.toUpperCase())}
-                className="input input-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800"
-                required
-              />
-            </div>
-
-            {/* Flight Instructor */}
-            <div className="form-control w-full">
-              <label className="label py-1">
-                <span className="label-text text-slate-300 font-semibold text-xs">FLIGHT INSTRUCTOR (FI)</span>
-              </label>
-              <input 
-                type="text" 
-                value={metadata.instructor_name}
-                onChange={e => handleMetadataChange('instructor_name', e.target.value)}
-                className="input input-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800"
-                required
-              />
-            </div>
-
-            {/* Evaluation Date */}
-            <div className="form-control w-full">
-              <label className="label py-1">
-                <span className="label-text text-slate-300 font-semibold text-xs">EVALUATION DATE</span>
-              </label>
-              <div className="relative">
+          <div className="space-y-6">
+            {/* Input & Fetch Button Row */}
+            <div className="flex flex-col sm:flex-row gap-4 items-end max-w-xl">
+              <div className="form-control w-full sm:w-2/3">
+                <label className="label py-1">
+                  <span className="label-text text-brand-text font-bold text-xs">TRAINEE CALLSIGN (3 DIGITS)</span>
+                </label>
                 <input 
-                  type="date" 
-                  value={metadata.flight_date}
-                  onChange={e => handleMetadataChange('flight_date', e.target.value)}
-                  className="input input-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800"
+                  type="text" 
+                  placeholder="e.g. 108" 
+                  value={callsignNum}
+                  onChange={handleCallsignInputChange}
+                  className="input input-bordered bg-brand-card text-slate-800 rounded-xl focus:border-primary w-full border-slate-350"
                   required
                 />
               </div>
+              <button
+                type="button"
+                onClick={fetchPilotDetails}
+                disabled={searchingPilot || !callsignNum}
+                className="btn btn-primary h-12 px-6 rounded-xl font-bold flex-shrink-0 flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all w-full sm:w-auto"
+              >
+                {searchingPilot ? (
+                  <>
+                    <span className="loading loading-spinner loading-xs"></span>
+                    <span>Fetching...</span>
+                  </>
+                ) : (
+                  <span>Fetch Details</span>
+                )}
+              </button>
             </div>
-            
+
+            {/* Read-Only Populated Info Grid */}
+            {(metadata.trainee_name || metadata.trainee_callsign) && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-brand-border animate-fade-in">
+                
+                {/* Trainee Name */}
+                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
+                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Trainee Name</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-bold text-slate-800">
+                      {metadata.trainee_name || "Trainee Pilot"}
+                    </span>
+                    {pilotMatched ? (
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Resolved Callsign */}
+                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
+                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Resolved Callsign</span>
+                  <span className="text-sm font-bold text-slate-800 mt-1 block">
+                    {metadata.trainee_callsign || "—"}
+                  </span>
+                </div>
+
+                {/* Evaluation Date */}
+                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
+                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Evaluation Date</span>
+                  <span className="text-sm font-bold text-slate-800 mt-1 block">
+                    {metadata.flight_date}
+                  </span>
+                </div>
+
+              </div>
+            )}
+
           </div>
         </div>
 
@@ -432,28 +446,28 @@ function EvaluatorForm() {
             return (
               <div 
                 key={q.id} 
-                className={`card bg-slate-900 border rounded-2xl shadow-xl transition-all duration-300 ${
+                className={`card bg-brand-card border rounded-2xl shadow-xl transition-all duration-300 ${
                   isAnswered 
                     ? isCorrect 
-                      ? 'border-emerald-800 bg-slate-900/60 shadow-emerald-950/20' 
-                      : 'border-orange-800 bg-slate-900/60 shadow-orange-950/20'
-                    : 'border-slate-800'
+                      ? 'border-emerald-500 bg-brand-card shadow-emerald-100/10' 
+                      : 'border-orange-500 bg-brand-card shadow-orange-100/10'
+                    : 'border-brand-border'
                 }`}
               >
                 
                 {/* Checklist Item Header */}
-                <div className="p-6 border-b border-slate-800/60 flex justify-between items-center gap-4 flex-wrap bg-slate-950/20 rounded-t-2xl">
+                <div className="p-6 border-b border-brand-border flex justify-between items-center gap-4 flex-wrap bg-brand-bg/50 rounded-t-2xl">
                   <div className="flex items-center gap-3">
                     <span className={`badge font-bold py-2.5 px-3 border ${
                       isAnswered
                         ? isCorrect 
-                          ? 'badge-success border-emerald-700 bg-emerald-500/10 text-emerald-400' 
-                          : 'badge-warning border-orange-700 bg-orange-500/10 text-orange-400'
-                        : 'badge-ghost border-slate-800 text-slate-400 bg-slate-950/40'
+                          ? 'badge-success border-emerald-700 bg-emerald-500/10 text-emerald-600' 
+                          : 'badge-warning border-orange-700 bg-orange-500/10 text-orange-600'
+                        : 'badge-ghost border-brand-border text-slate-500 bg-brand-bg'
                     }`}>
                       {q.id}
                     </span>
-                    <h3 className="font-bold text-white tracking-wide text-sm md:text-base">
+                    <h3 className="font-bold text-brand-text tracking-wide text-sm md:text-base">
                       {q.category}
                     </h3>
                   </div>
@@ -468,7 +482,7 @@ function EvaluatorForm() {
                   
                   {/* Evaluation Question */}
                   <div className="space-y-2">
-                    <p className="text-slate-300 font-semibold text-sm md:text-base leading-relaxed">
+                    <p className="text-slate-800 font-semibold text-sm md:text-base leading-relaxed">
                       {q.question}
                     </p>
                   </div>
@@ -485,17 +499,17 @@ function EvaluatorForm() {
                           className={`btn p-4 h-auto min-h-12 rounded-xl text-left flex justify-start items-center transition-all duration-200 gap-3 border ${
                             isSelected 
                               ? optIdx === q.correctAnswerIndex
-                                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 hover:bg-emerald-500/20'
-                                : 'bg-orange-500/10 border-orange-500 text-orange-400 hover:bg-orange-500/20'
-                              : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
+                                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 hover:bg-emerald-500/20'
+                                : 'bg-orange-500/10 border-orange-500 text-orange-600 hover:bg-orange-500/20'
+                              : 'bg-brand-bg border-slate-300 text-slate-600 hover:bg-brand-border/30 hover:text-brand-text'
                           }`}
                         >
                           <div className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${
                             isSelected 
                               ? optIdx === q.correctAnswerIndex
-                                ? 'border-emerald-400 bg-emerald-400 text-slate-950 font-bold'
-                                : 'border-orange-400 bg-orange-400 text-slate-950 font-bold'
-                              : 'border-slate-700'
+                                ? 'border-emerald-500 bg-emerald-500 text-slate-950 font-bold'
+                                : 'border-orange-500 bg-orange-500 text-slate-950 font-bold'
+                              : 'border-slate-400'
                           }`}>
                             {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950"></span>}
                           </div>
@@ -511,14 +525,14 @@ function EvaluatorForm() {
                         onClick={() => handleSelectOption(q.id, q.options.length, true)}
                         className={`btn p-4 h-auto min-h-12 rounded-xl text-left flex justify-start items-center transition-all duration-200 gap-3 border col-span-1 md:col-span-2 ${
                           ans.is_other
-                            ? 'bg-orange-500/10 border-orange-500 text-orange-400 hover:bg-orange-500/20'
-                            : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
+                            ? 'bg-orange-500/10 border-orange-500 text-orange-600 hover:bg-orange-500/20'
+                            : 'bg-brand-bg border-slate-300 text-slate-600 hover:bg-brand-border/30 hover:text-brand-text'
                         }`}
                       >
                         <div className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${
                           ans.is_other
-                            ? 'border-orange-400 bg-orange-400 text-slate-950 font-bold'
-                            : 'border-slate-700'
+                            ? 'border-orange-500 bg-orange-500 text-slate-950 font-bold'
+                            : 'border-slate-400'
                         }`}>
                           {ans.is_other && <span className="w-1.5 h-1.5 rounded-full bg-slate-950"></span>}
                         </div>
@@ -531,13 +545,13 @@ function EvaluatorForm() {
                   {ans.is_other && (
                     <div className="form-control w-full space-y-2 animate-slide-down">
                       <label className="label py-0">
-                        <span className="label-text text-orange-400 font-bold text-xs">WHAT WAS OBSERVED? (REQUIRED DESCRIPTION)</span>
+                        <span className="label-text text-orange-600 font-bold text-xs">WHAT WAS OBSERVED? (REQUIRED DESCRIPTION)</span>
                       </label>
                       <textarea
                         placeholder="Describe the incorrect procedure observed during replay review..."
                         value={ans.other_text}
                         onChange={e => handleOtherTextChange(q.id, e.target.value)}
-                        className="textarea textarea-bordered bg-slate-950 text-white rounded-xl focus:border-orange-500 w-full border-orange-900 p-4 h-24"
+                        className="textarea textarea-bordered bg-brand-card text-slate-800 rounded-xl focus:border-orange-500 w-full border-orange-400 p-4 h-24"
                         required
                       />
                     </div>
@@ -548,7 +562,7 @@ function EvaluatorForm() {
                     <button
                       type="button"
                       onClick={() => toggleComments(q.id)}
-                      className="btn btn-ghost btn-xs text-slate-500 hover:text-slate-300 gap-1 flex items-center"
+                      className="btn btn-ghost btn-xs text-slate-500 hover:text-brand-text gap-1 flex items-center font-semibold"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>{ans.extra_feedback ? 'Edit Feedback Comments' : '+ Add Custom Feedback Comments (Optional)'}</span>
@@ -563,16 +577,16 @@ function EvaluatorForm() {
                         placeholder="Write a specific feedback comment for the trainee on this specific procedural point..."
                         value={ans.extra_feedback}
                         onChange={e => handleFeedbackChange(q.id, e.target.value)}
-                        className="textarea textarea-bordered bg-slate-950 text-slate-300 rounded-xl focus:border-primary w-full border-slate-800 p-4 h-20"
+                        className="textarea textarea-bordered bg-brand-card text-slate-700 rounded-xl focus:border-primary w-full border-brand-border p-4 h-20"
                       />
                     </div>
                   )}
 
                   {/* Showing correct procedure feedback block on wrong answers */}
                   {isAnswered && !isCorrect && (
-                    <div className="bg-amber-500/10 border border-amber-900/60 rounded-xl p-4 space-y-2">
-                      <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wide">⚠️ CORRECT FLIGHT OPERATION CRITERIA</h4>
-                      <p className="text-xs text-amber-300/90 leading-relaxed font-mono">
+                    <div className="bg-[#fcf5e3] border border-accent/30 rounded-xl p-4 space-y-2">
+                      <h4 className="text-xs font-bold text-accent uppercase tracking-wide">⚠️ CORRECT FLIGHT OPERATION CRITERIA</h4>
+                      <p className="text-xs text-accent leading-relaxed font-mono font-semibold">
                         {q.procedureDetails}
                       </p>
                     </div>
@@ -585,7 +599,7 @@ function EvaluatorForm() {
         </div>
 
         {/* General Instructor Feedback Remarks */}
-        <div className="card bg-slate-900 border border-slate-800 shadow-xl rounded-2xl p-6">
+        <div className="card bg-brand-card border border-brand-border shadow-xl rounded-2xl p-6">
           <div className="flex items-center gap-2 text-primary mb-4 font-bold tracking-wider text-xs">
             <FileText className="w-4 h-4" />
             <span>GENERAL PERFORMANCE DEBRIEF & REMARKS</span>
@@ -596,11 +610,71 @@ function EvaluatorForm() {
               placeholder="Write a detailed summary of the trainee's flight performance, highlighting areas of excellence and specific lessons to practice before the next checkride..."
               value={metadata.general_remarks}
               onChange={e => handleMetadataChange('general_remarks', e.target.value)}
-              className="textarea textarea-bordered bg-slate-950 text-white rounded-xl focus:border-primary w-full border-slate-800 p-4 h-36 leading-relaxed"
+              className="textarea textarea-bordered bg-brand-card text-slate-800 rounded-xl focus:border-primary w-full border-brand-border p-4 h-36 leading-relaxed"
               required
             />
           </div>
         </div>
+
+        {/* FI Final Decision & Summary Panel (Slides open when form is fully evaluated) */}
+        {finalDecision && (
+          <div className="card bg-brand-card border border-brand-border shadow-2xl rounded-2xl p-6 space-y-6 animate-slide-up">
+            <div className="flex items-center gap-2 text-primary font-bold tracking-wider text-xs">
+              <ClipboardCheck className="w-4 h-4 text-primary" />
+              <span>CHECKRIDE SUMMARY & FINAL FI DECISION</span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              
+              {/* Final Score Callout */}
+              <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60 text-center">
+                <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Calculated Evaluation Score</span>
+                <span className="text-3xl font-black text-primary mt-1 block">
+                  {scoreStats.percent.toFixed(1)}%
+                </span>
+                <span className="text-xs text-slate-500 font-semibold block mt-1">
+                  ({scoreStats.pointsEarned} / {scoreStats.totalPoints} Points)
+                </span>
+              </div>
+
+              {/* System Recommendation */}
+              <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60 text-center">
+                <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">System Recommendation</span>
+                <div className="mt-2">
+                  {scoreStats.percent >= 75.0 ? (
+                    <span className="badge badge-success font-bold py-2.5 px-3">PASS</span>
+                  ) : (
+                    <span className="badge badge-warning font-bold py-2.5 px-3">RETAKE</span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium block mt-2">
+                  Rubric benchmark threshold is 75%
+                </span>
+              </div>
+
+              {/* FI Final Checkride Decision Dropdown */}
+              <div className="form-control w-full">
+                <label className="label py-1">
+                  <span className="label-text text-brand-text font-bold text-xs">FI FINAL CHECKRIDE DECISION</span>
+                </label>
+                <select
+                  value={finalDecision}
+                  onChange={e => setFinalDecision(e.target.value)}
+                  className={`select select-bordered rounded-xl w-full border-slate-350 font-bold focus:border-primary ${
+                    finalDecision === 'PASS' 
+                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-300' 
+                      : 'bg-orange-500/10 text-orange-700 border-orange-300'
+                  }`}
+                  required
+                >
+                  <option value="PASS" className="bg-white text-emerald-700 font-bold">PASS (Verify Trainee Competence)</option>
+                  <option value="RETAKE" className="bg-white text-orange-700 font-bold">RETAKE (Requires Practice / Fails Rubric)</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
         <div className="pt-4">
