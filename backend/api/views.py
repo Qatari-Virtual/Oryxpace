@@ -137,30 +137,35 @@ def generate_pdf(request):
             selected_idx = ans.get("selected_option_index")
             is_other = ans.get("is_other", False) or (selected_idx == len(temp["options"]))
             
-            is_correct = False
-            selected_option = ""
+            is_correct = ans.get("is_correct")
+            selected_option = ans.get("selected_option")
             other_text = ans.get("other_text", "")
             
-            if is_other:
-                selected_option = "Others"
-                is_correct = False
-            elif selected_idx is not None and 0 <= selected_idx < len(temp["options"]):
-                selected_option = temp["options"][selected_idx]
-                is_correct = (selected_idx == temp["correctAnswerIndex"])
+            if is_correct is None:
+                if is_other:
+                    is_correct = False
+                elif selected_idx is not None and 0 <= selected_idx < len(temp["options"]):
+                    is_correct = (selected_idx == temp["correctAnswerIndex"])
+            
+            if not selected_option:
+                if is_other:
+                    selected_option = "Others"
+                elif selected_idx is not None and 0 <= selected_idx < len(temp["options"]):
+                    selected_option = temp["options"][selected_idx]
                 
             enriched_answers.append({
                 "id": temp["id"],
-                "category": temp["category"],
-                "points": temp.get("points", 1),
-                "question": temp["question"],
+                "category": ans.get("category", temp["category"]),
+                "points": ans.get("points", temp.get("points", 1)),
+                "question": ans.get("question", temp["question"]),
                 "selected_option": selected_option,
                 "is_correct": is_correct,
                 "is_other": is_other,
                 "other_text": other_text,
                 "extra_feedback": ans.get("extra_feedback", ""),
-                "correct_statement": temp["correctStatement"],
-                "wrong_statement": temp["wrongStatement"],
-                "procedure_details": temp["procedureDetails"]
+                "correct_statement": ans.get("correct_statement", temp["correctStatement"]),
+                "wrong_statement": ans.get("wrong_statement", temp["wrongStatement"]),
+                "procedure_details": ans.get("procedure_details", temp["procedureDetails"])
             })
             
         # Build payload for PDF generator

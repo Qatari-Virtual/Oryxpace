@@ -97,15 +97,22 @@ def generate_evaluation_pdf(data):
     # Custom styles
     styles = getSampleStyleSheet()
     
-    # Set up distinct palette
-    primary_color = colors.HexColor("#8B1538")    # Qatari Maroon
-    secondary_color = colors.HexColor("#b04a69")  # Rose Gold
-    success_color = colors.HexColor("#10b981")    # Emerald-500
-    danger_color = colors.HexColor("#f97316")     # Orange-500 (Safety Alert)
-    gold_color = colors.HexColor("#b0802d")       # Oryx Metallic Gold
-    gold_bg_color = colors.HexColor("#fcf5e3")    # Soft Gold Cream
-    light_bg = colors.HexColor("#fdf8f9")         # Rose-tinted off-white
-    border_color = colors.HexColor("#ead9df")     # Light rose border
+    # Set up modern airline training record palette
+    primary_color = colors.HexColor("#5C0E3E")    # Qatar Maroon Header
+    secondary_color = colors.HexColor("#8B1538")  # Accent Maroon
+    success_color = colors.HexColor("#166534")    # Dark Green Success
+    danger_color = colors.HexColor("#B91C1C")     # Red Error / Status
+    warning_color = colors.HexColor("#B45309")    # Amber Warning
+    border_color = colors.HexColor("#E5E7EB")     # Gray border
+    main_text_color = colors.HexColor("#1F2937")  # Main Text (#1F2937)
+    
+    # Block Styling Colors (Background + Text)
+    obs_bg = colors.HexColor("#FEE2E2")           # Observation background (Soft Red)
+    obs_text = colors.HexColor("#991B1B")         # Observation text
+    std_bg = colors.HexColor("#EFF6FF")           # Expected Standard background (Soft Blue)
+    std_text = colors.HexColor("#1E40AF")         # Expected Standard text
+    rem_bg = colors.HexColor("#F8FAFC")           # Remarks background (Soft slate-50)
+    rem_text = colors.HexColor("#334155")         # Remarks text
     
     # Register/Update Styles
     title_style = ParagraphStyle(
@@ -146,7 +153,7 @@ def generate_evaluation_pdf(data):
         fontName='Helvetica',
         fontSize=10,
         leading=14,
-        textColor=colors.HexColor("#1e293b")
+        textColor=main_text_color
     )
     
     meta_label_style = ParagraphStyle(
@@ -243,7 +250,7 @@ def generate_evaluation_pdf(data):
     score_data = [
         [Paragraph("FINAL GRADE", score_label_style)],
         [Paragraph(f"{grade_percentage:.1f}%", score_val_style)],
-        [Paragraph(f"{score_earned} / {total_score} Points", score_label_style)],
+        [Spacer(1, 2)],
         [status_paragraph]
     ]
     score_sub_table = Table(score_data, colWidths=[score_col_width])
@@ -302,80 +309,96 @@ def generate_evaluation_pdf(data):
         
         # Header for the question item
         item_status_color = success_color if ans["is_correct"] else danger_color
-        item_status_text = "CORRECT" if ans["is_correct"] else "INCORRECT"
-        if ans.get("is_other", False):
-            item_status_text = "INCORRECT (OTHER)"
+        
+        if ans["is_correct"]:
+            status_text = "<font color='#166534'><b>✓ Correct</b></font>"
+        else:
+            status_text = "<font color='#B91C1C'><b>✗ Needs Improvement</b></font>"
             
-        header_text = f"<b>{ans['id']}: {ans['category']}</b>"
-        points_text = f"Points: {ans.get('points', 1)} / {ans.get('points', 1) if ans['is_correct'] else 0}"
+        header_text = f"<b>{ans['category']}</b>"
         
         # Item Header Layout
-        header_p = Paragraph(header_text, ParagraphStyle('ItemH', parent=body_style, fontName='Helvetica-Bold', fontSize=10, leading=13))
-        points_p = Paragraph(points_text, ParagraphStyle('ItemP', parent=body_style, alignment=TA_RIGHT, fontSize=9, fontName='Helvetica-Bold', textColor=colors.HexColor("#475569")))
+        header_p = Paragraph(header_text, ParagraphStyle('ItemH', parent=body_style, fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=primary_color))
+        status_p = Paragraph(status_text, ParagraphStyle('ItemS', parent=body_style, alignment=TA_RIGHT, fontSize=10, fontName='Helvetica-Bold'))
         
-        item_header_table = Table([[header_p, points_p]], colWidths=[400, 104])
-        item_header_table.setStyle(TableStyle([
+        item_header_table = Table([[header_p, status_p]], colWidths=[330, 150])
+        
+        t_style = [
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('LINEBELOW', (0,0), (-1,-1), 0.5, border_color)
-        ]))
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+        ]
+        
+        # If wrong, or if we have custom feedback remarks, draw a thin divider line
+        if not ans["is_correct"] or ans.get("extra_feedback"):
+            t_style.append(('LINEBELOW', (0,0), (-1,-1), 0.5, border_color))
+            
+        item_header_table.setStyle(TableStyle(t_style))
         question_block.append(item_header_table)
-        question_block.append(Spacer(1, 6))
         
-        # Question Statement
-        question_p = Paragraph(f"<b>Question:</b> {ans['question']}", body_style)
-        question_block.append(question_p)
-        question_block.append(Spacer(1, 4))
-        
-        # Answer selected
-        selected_text = ans['selected_option']
-        if ans.get("is_other", False) and ans.get("other_text"):
-            selected_text = f"Other: {ans['other_text']}"
+        # If wrong, print the trainee's selected wrong action (Observation) and standard (Expected Standard)
+        if not ans["is_correct"]:
+            question_block.append(Spacer(1, 8))
             
-        answer_prefix = "<b>Trainee Action:</b> "
-        answer_p = Paragraph(f"{answer_prefix}<font color='{item_status_color.hexval()}'><b>{selected_text}</b> ({item_status_text})</font>", body_style)
-        question_block.append(answer_p)
-        question_block.append(Spacer(1, 6))
-        
-        # Evaluation Result Statements
-        if ans["is_correct"]:
-            statement_style = ParagraphStyle('StatS', parent=body_style, textColor=success_color, fontName='Helvetica-Bold')
-            statement_p = Paragraph(ans["correct_statement"], statement_style)
-            question_block.append(statement_p)
-        else:
-            # Common mistake warning
-            mistake_style = ParagraphStyle('StatM', parent=body_style, textColor=colors.HexColor("#c2410c"), fontName='Helvetica-Bold')
-            mistake_p = Paragraph(f"⚠️ Common Mistake: {ans['wrong_statement']}", mistake_style)
-            question_block.append(mistake_p)
-            question_block.append(Spacer(1, 6))
-            
-            # Correct Procedure Block
-            procedure_p = Paragraph(f"<b>Correct Procedure:</b> {ans['procedure_details']}", ParagraphStyle('StatP', parent=body_style, fontSize=9.5, leading=13.5, textColor=gold_color))
-            
-            procedure_table = Table([[procedure_p]], colWidths=[480])
-            procedure_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (0,0), gold_bg_color),
-                ('BOX', (0,0), (0,0), 0.5, colors.HexColor("#f59e0b")),
+            selected_text = ans['selected_option']
+            if ans.get("is_other", False) and ans.get("other_text"):
+                selected_text = f"Other: {ans['other_text']}"
+                
+            # 1. Observation Block
+            obs_style = ParagraphStyle('ObsStyle', parent=body_style, textColor=obs_text, leading=14.5)
+            obs_content = f"<b>⚠ Observation</b><br/>{selected_text}"
+            obs_p = Paragraph(obs_content, obs_style)
+            obs_table = Table([[obs_p]], colWidths=[480])
+            obs_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,0), obs_bg),
+                ('BOX', (0,0), (0,0), 0.5, colors.HexColor("#FCA5A5")),
                 ('TOPPADDING', (0,0), (0,0), 6),
                 ('BOTTOMPADDING', (0,0), (0,0), 6),
                 ('LEFTPADDING', (0,0), (0,0), 10),
                 ('RIGHTPADDING', (0,0), (0,0), 10),
             ]))
-            question_block.append(procedure_table)
+            question_block.append(obs_table)
+            question_block.append(Spacer(1, 8))
             
-        # Extra Feedback
+            # 2. Expected Standard Block
+            std_style = ParagraphStyle('StdStyle', parent=body_style, textColor=std_text, leading=14.5)
+            std_content = f"<b>✓ Expected Standard</b><br/>{ans['procedure_details']}"
+            std_p = Paragraph(std_content, std_style)
+            std_table = Table([[std_p]], colWidths=[480])
+            std_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,0), std_bg),
+                ('BOX', (0,0), (0,0), 0.5, colors.HexColor("#93C5FD")),
+                ('TOPPADDING', (0,0), (0,0), 6),
+                ('BOTTOMPADDING', (0,0), (0,0), 6),
+                ('LEFTPADDING', (0,0), (0,0), 10),
+                ('RIGHTPADDING', (0,0), (0,0), 10),
+            ]))
+            question_block.append(std_table)
+            
+        # 3. Instructor Remarks Block (if present)
         if ans.get("extra_feedback"):
-            question_block.append(Spacer(1, 6))
-            feedback_p = Paragraph(f"<i>FI Custom Feedback: \"{ans['extra_feedback']}\"</i>", ParagraphStyle('StatF', parent=body_style, textColor=colors.HexColor("#475569"), fontName='Helvetica-Oblique'))
-            question_block.append(feedback_p)
+            question_block.append(Spacer(1, 8))
             
-        # Outer Card Wrapper for the entire Checklist Item
+            rem_style = ParagraphStyle('RemStyle', parent=body_style, textColor=rem_text, leading=14.5)
+            rem_content = f"<b>📝 Instructor Remarks</b><br/>{ans['extra_feedback']}"
+            rem_p = Paragraph(rem_content, rem_style)
+            rem_table = Table([[rem_p]], colWidths=[480])
+            rem_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,0), rem_bg),
+                ('BOX', (0,0), (0,0), 0.5, colors.HexColor("#CBD5E1")),
+                ('TOPPADDING', (0,0), (0,0), 6),
+                ('BOTTOMPADDING', (0,0), (0,0), 6),
+                ('LEFTPADDING', (0,0), (0,0), 10),
+                ('RIGHTPADDING', (0,0), (0,0), 10),
+            ]))
+            question_block.append(rem_table)
+            
+        # Outer Card Wrapper for the entire Checklist Item (Clean White background)
         outer_card_table = Table([[question_block]], colWidths=[504])
         outer_card_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (0,0), light_bg),
+            ('BACKGROUND', (0,0), (0,0), colors.white),
             ('BOX', (0,0), (0,0), 1, border_color),
-            ('LINELEFT', (0,0), (0,0), 4, item_status_color), # left accent status colored bar (green or orange)
+            ('LINELEFT', (0,0), (0,0), 4, item_status_color),
             ('TOPPADDING', (0,0), (0,0), 10),
             ('BOTTOMPADDING', (0,0), (0,0), 10),
             ('LEFTPADDING', (0,0), (0,0), 12),
