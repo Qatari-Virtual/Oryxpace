@@ -35,11 +35,11 @@ function MainLayout() {
           <div className="flex items-center gap-3 px-5 py-5 border-b border-brand-border h-[73px]">
             {sidebarOpen ? (
               <img 
-                src="/static/Qatar_Virtual_logo.PNG" 
+                src={`${API_BASE_URL}/static/Qatar_Virtual_logo.PNG`} 
                 alt="Qatar Virtual Logo" 
                 className="h-10 w-auto object-contain mx-auto transition-all duration-300"
                 onLoad={() => {
-                  console.log("[Sidebar Logo] Loaded successfully from relative /static/Qatar_Virtual_logo.PNG");
+                  console.log(`[Sidebar Logo] Loaded successfully from ${API_BASE_URL}/static/Qatar_Virtual_logo.PNG`);
                   setSidebarLogoErr(null);
                 }}
                 onError={(e) => {
@@ -58,7 +58,7 @@ function MainLayout() {
             ) : (
               <div className="h-9 w-9 rounded-xl overflow-hidden bg-brand-bg border border-brand-border flex-shrink-0 flex items-center justify-center mx-auto">
                 <img 
-                  src="/static/Qatar_Virtual_logo.PNG" 
+                  src={`${API_BASE_URL}/static/Qatar_Virtual_logo.PNG`} 
                   alt="Qatar Virtual Logo" 
                   className="h-full w-full object-cover object-right scale-110"
                   onLoad={() => {
