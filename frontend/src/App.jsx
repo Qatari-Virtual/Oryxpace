@@ -14,10 +14,13 @@ import {
 import Dashboard from './pages/Dashboard'
 import EvaluatorForm from './pages/EvaluatorForm'
 
+import { API_BASE_URL } from './config'
+
 function MainLayout() {
   const dispatch = useDispatch()
   const location = useLocation()
   const { user, sidebarOpen } = useSelector((state) => state.app)
+  const [sidebarLogoErr, setSidebarLogoErr] = React.useState(null)
 
   const menuItems = [
     { name: 'Flight Evaluator', path: '/', icon: ClipboardCheck },
@@ -29,13 +32,54 @@ function MainLayout() {
       {/* Sidebar */}
       <aside className={`bg-brand-card border-r border-brand-border transition-all duration-300 flex flex-col justify-between z-20 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
         <div>
-          {/* Logo Brand */}
-          <div className="flex items-center gap-3 px-6 py-5 border-b border-brand-border">
-            <PlaneTakeoff className="w-8 h-8 text-primary flex-shrink-0" />
-            {sidebarOpen && (
-              <span className="text-xl font-bold tracking-wider text-brand-text">ORYXPACE</span>
+          <div className="flex items-center gap-3 px-5 py-5 border-b border-brand-border h-[73px]">
+            {sidebarOpen ? (
+              <img 
+                src="/static/Qatar_Virtual_logo.PNG" 
+                alt="Qatar Virtual Logo" 
+                className="h-10 w-auto object-contain mx-auto transition-all duration-300"
+                onLoad={() => {
+                  console.log("[Sidebar Logo] Loaded successfully from relative /static/Qatar_Virtual_logo.PNG");
+                  setSidebarLogoErr(null);
+                }}
+                onError={(e) => {
+                  const errDetails = `Failed to fetch: ${e.target.src}`;
+                  console.error("[Sidebar Logo] Failed to load!", errDetails);
+                  setSidebarLogoErr(errDetails);
+                  
+                  // Send log to Django server console
+                  fetch("/api/log/", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: `[Sidebar Logo Error] Failed to load image from src: ${e.target.src}. Current frontend URL: ${window.location.href}` })
+                  }).catch(() => {});
+                }}
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-xl overflow-hidden bg-brand-bg border border-brand-border flex-shrink-0 flex items-center justify-center mx-auto">
+                <img 
+                  src="/static/Qatar_Virtual_logo.PNG" 
+                  alt="Qatar Virtual Logo" 
+                  className="h-full w-full object-cover object-right scale-110"
+                  onLoad={() => {
+                    setSidebarLogoErr(null);
+                  }}
+                  onError={(e) => {
+                    const errDetails = `Failed to fetch: ${e.target.src}`;
+                    setSidebarLogoErr(errDetails);
+                  }}
+                />
+              </div>
             )}
           </div>
+          
+          {sidebarLogoErr && sidebarOpen && (
+            <div className="mx-4 my-2 p-2 bg-red-50 border border-red-200 text-red-800 text-[10px] rounded-lg font-mono leading-tight">
+              <strong>Sidebar Logo Error:</strong>
+              <div className="mt-1 break-all">{sidebarLogoErr}</div>
+              <div className="mt-2 text-slate-500 text-[9px]">Hint: Verify if your proxy is active or if backend serves it.</div>
+            </div>
+          )}
 
           {/* Navigation Links */}
           <nav className="p-4 space-y-2">

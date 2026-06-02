@@ -25,8 +25,10 @@ function EvaluatorForm() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [callsignNum, setCallsignNum] = useState('')
+  const [fiCallsignNum, setFiCallsignNum] = useState('')
   const [searchingPilot, setSearchingPilot] = useState(false)
   const [pilotMatched, setPilotMatched] = useState(false)
+  const [fiMatched, setFiMatched] = useState(false)
   const [finalDecision, setFinalDecision] = useState('')
   const [pdfBlobUrl, setPdfBlobUrl] = useState('')
   const [compilingPreview, setCompilingPreview] = useState(false)
@@ -36,8 +38,8 @@ function EvaluatorForm() {
   const [metadata, setMetadata] = useState({
     trainee_name: '',
     trainee_callsign: '',
-    instructor_name: 'Bumy [QRV]', // default mock name
-    flight_callsign: '',
+    instructor_name: '',
+    instructor_callsign: '',
     flight_date: new Date().toISOString().split('T')[0],
     general_remarks: ''
   })
@@ -103,53 +105,99 @@ function EvaluatorForm() {
 
   // Handle callsign number input changes and reset resolved states to keep UI aligned
   const handleCallsignInputChange = (e) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3)
     setCallsignNum(val)
     handleMetadataChange('trainee_name', '')
     handleMetadataChange('trainee_callsign', '')
-    handleMetadataChange('flight_callsign', '')
     setPilotMatched(false)
   }
 
-  // Trigger explicit database lookup for pilot details on fetch button click
+  const handleFiCallsignInputChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3)
+    setFiCallsignNum(val)
+    handleMetadataChange('instructor_name', '')
+    handleMetadataChange('instructor_callsign', '')
+    setFiMatched(false)
+  }
+
+  // Trigger explicit database lookup for both trainee and instructor details on fetch button click
   const fetchPilotDetails = () => {
-    if (!callsignNum) return
-    if (!/^\d+$/.test(callsignNum)) {
-      alert('Please enter a valid numeric callsign.')
+    if (!callsignNum) {
+      alert('Trainee callsign is required.')
+      return
+    }
+    if (!fiCallsignNum) {
+      alert('FI callsign is required.')
+      return
+    }
+    if (!/^\d+$/.test(callsignNum) || !/^\d+$/.test(fiCallsignNum)) {
+      alert('Please enter valid 3-digit numeric callsigns.')
       return
     }
 
     setSearchingPilot(true)
     setPilotMatched(false)
+    setFiMatched(false)
 
-    axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${callsignNum}`)
-      .then(response => {
-        if (response.data.found) {
-          handleMetadataChange('trainee_name', response.data.name)
-          handleMetadataChange('trainee_callsign', response.data.callsign)
-          const numPart = response.data.callsign.replace('QRV', '')
-          handleMetadataChange('flight_callsign', `QATAR ${numPart}`)
+    const traineeReq = axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${callsignNum}`)
+    const fiReq = axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${fiCallsignNum}`)
+
+    Promise.all([traineeReq, fiReq])
+      .then(([traineeRes, fiRes]) => {
+        // 1. Process Trainee Result
+        if (traineeRes.data.found) {
+          handleMetadataChange('trainee_name', traineeRes.data.name)
+          handleMetadataChange('trainee_callsign', traineeRes.data.callsign)
           setPilotMatched(true)
         } else {
-          // If pilot is not found in database, populate fallback values seamlessly
           handleMetadataChange('trainee_name', 'Trainee Pilot')
           const padded = callsignNum.padStart(3, '0')
           handleMetadataChange('trainee_callsign', `QRV${padded}`)
-          handleMetadataChange('flight_callsign', `QATAR ${padded}`)
           setPilotMatched(false)
-          alert(`Active pilot with callsign QRV${padded} not found in database. Using default fallback details.`);
+        }
+
+        // 2. Process FI Result
+        if (fiRes.data.found) {
+          handleMetadataChange('instructor_name', fiRes.data.name)
+          handleMetadataChange('instructor_callsign', fiRes.data.callsign)
+          setFiMatched(true)
+        } else {
+          handleMetadataChange('instructor_name', 'Flight Instructor')
+          const padded = fiCallsignNum.padStart(3, '0')
+          handleMetadataChange('instructor_callsign', `QRV${padded}`)
+          setFiMatched(false)
+        }
+
+        const traineeNotFound = !traineeRes.data.found
+        const fiNotFound = !fiRes.data.found
+        if (traineeNotFound || fiNotFound) {
+          let warnMsg = "Lookups completed with warnings:\n"
+          if (traineeNotFound) {
+            warnMsg += `- Active trainee pilot with callsign QRV${callsignNum.padStart(3, '0')} not found.\n`
+          }
+          if (fiNotFound) {
+            warnMsg += `- Active flight instructor with callsign QRV${fiCallsignNum.padStart(3, '0')} not found.\n`
+          }
+          warnMsg += "Using fallback details."
+          alert(warnMsg)
         }
         setSearchingPilot(false)
       })
       .catch(err => {
         console.error(err)
-        // Set standard fallbacks on error to prevent blocking the evaluator
+        // Fallback trainee
         handleMetadataChange('trainee_name', 'Trainee Pilot')
-        const padded = callsignNum.padStart(3, '0')
-        handleMetadataChange('trainee_callsign', `QRV${padded}`)
-        handleMetadataChange('flight_callsign', `QATAR ${padded}`)
-        setSearchingPilot(false)
+        const paddedTrainee = callsignNum.padStart(3, '0')
+        handleMetadataChange('trainee_callsign', `QRV${paddedTrainee}`)
         setPilotMatched(false)
+
+        // Fallback instructor
+        handleMetadataChange('instructor_name', 'Flight Instructor')
+        const paddedFi = fiCallsignNum.padStart(3, '0')
+        handleMetadataChange('instructor_callsign', `QRV${paddedFi}`)
+        setFiMatched(false)
+
+        setSearchingPilot(false)
       })
   }
 
@@ -333,7 +381,9 @@ function EvaluatorForm() {
       })
       setAnswers(resetAnswers)
       setCallsignNum('')
+      setFiCallsignNum('')
       setPilotMatched(false)
+      setFiMatched(false)
       setFinalDecision('')
       if (pdfBlobUrl) {
         window.URL.revokeObjectURL(pdfBlobUrl)
@@ -342,8 +392,8 @@ function EvaluatorForm() {
       setMetadata({
         trainee_name: '',
         trainee_callsign: '',
-        instructor_name: 'Bumy [QRV]',
-        flight_callsign: '',
+        instructor_name: '',
+        instructor_callsign: '',
         flight_date: new Date().toISOString().split('T')[0],
         general_remarks: ''
       })
@@ -373,8 +423,8 @@ function EvaluatorForm() {
     e.preventDefault()
     
     // Check if metadata fields are filled
-    if (!metadata.trainee_name || !metadata.trainee_callsign) {
-      alert('Please select a Trainee Callsign and Fetch details in the card above.')
+    if (!metadata.trainee_name || !metadata.trainee_callsign || !metadata.instructor_name || !metadata.instructor_callsign) {
+      alert('Please fill in both Callsigns and click Fetch Details in the card above.')
       return
     }
 
@@ -494,17 +544,17 @@ function EvaluatorForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Trainee Details Card */}
+        {/* Trainee & Instructor Details Card */}
         <div className="card bg-brand-card border border-brand-border shadow-xl rounded-2xl p-6">
           <div className="flex items-center gap-2 text-primary mb-4 font-bold tracking-wider text-xs">
             <User className="w-4 h-4" />
-            <span>TRAINEE DETAILS</span>
+            <span>TRAINEE & INSTRUCTOR DETAILS</span>
           </div>
           
           <div className="space-y-6">
             {/* Input & Fetch Button Row */}
-            <div className="flex flex-col sm:flex-row gap-4 items-end max-w-xl">
-              <div className="form-control w-full sm:w-2/3">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="form-control w-full sm:w-1/3">
                 <label className="label py-1">
                   <span className="label-text text-brand-text font-bold text-xs">TRAINEE CALLSIGN (3 DIGITS)</span>
                 </label>
@@ -517,16 +567,31 @@ function EvaluatorForm() {
                   required
                 />
               </div>
+
+              <div className="form-control w-full sm:w-1/3">
+                <label className="label py-1">
+                  <span className="label-text text-brand-text font-bold text-xs">FI CALLSIGN (3 DIGITS)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 095" 
+                  value={fiCallsignNum}
+                  onChange={handleFiCallsignInputChange}
+                  className="input input-bordered bg-brand-card text-slate-800 rounded-xl focus:border-primary w-full border-slate-350"
+                  required
+                />
+              </div>
+
               <button
                 type="button"
                 onClick={fetchPilotDetails}
-                disabled={searchingPilot || !callsignNum}
+                disabled={searchingPilot || !callsignNum || !fiCallsignNum}
                 className="btn btn-primary h-12 px-6 rounded-xl font-bold flex-shrink-0 flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all w-full sm:w-auto"
               >
                 {searchingPilot ? (
                   <>
                     <span className="loading loading-spinner loading-xs"></span>
-                    <span>Fetching...</span>
+                    <span>Resolving Crew...</span>
                   </>
                 ) : (
                   <span>Fetch Details</span>
@@ -535,30 +600,47 @@ function EvaluatorForm() {
             </div>
 
             {/* Read-Only Populated Info Grid */}
-            {(metadata.trainee_name || metadata.trainee_callsign) && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-brand-border animate-fade-in">
+            {(metadata.trainee_name || metadata.trainee_callsign || metadata.instructor_name || metadata.instructor_callsign) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-brand-border animate-fade-in">
                 
                 {/* Trainee Name */}
                 <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
-                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Trainee Name</span>
-                  <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Trainee Pilot</span>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-sm font-bold text-slate-800">
                       {metadata.trainee_name || "Trainee Pilot"}
                     </span>
-                    {pilotMatched ? (
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
+                    {metadata.trainee_callsign && (
+                      <span className="text-xs font-mono text-primary font-bold">
+                        ({metadata.trainee_callsign})
+                      </span>
                     )}
+                    {pilotMatched ? (
+                      <span className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
+                    ) : metadata.trainee_callsign ? (
+                      <span className="text-[8px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
+                    ) : null}
                   </div>
                 </div>
 
-                {/* Resolved Callsign */}
+                {/* Instructor Details */}
                 <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
-                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Resolved Callsign</span>
-                  <span className="text-sm font-bold text-slate-800 mt-1 block">
-                    {metadata.trainee_callsign || "—"}
-                  </span>
+                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Flight Instructor (FI)</span>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-sm font-bold text-slate-800">
+                      {metadata.instructor_name || "Flight Instructor"}
+                    </span>
+                    {metadata.instructor_callsign && (
+                      <span className="text-xs font-mono text-primary font-bold">
+                        ({metadata.instructor_callsign})
+                      </span>
+                    )}
+                    {fiMatched ? (
+                      <span className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
+                    ) : metadata.instructor_callsign ? (
+                      <span className="text-[8px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* Evaluation Date */}

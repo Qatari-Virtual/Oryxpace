@@ -1,8 +1,10 @@
 import io
+import os
+from django.conf import settings
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
@@ -36,7 +38,7 @@ class NumberedCanvas(canvas.Canvas):
         footer_text = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(letter[0] - 54, 36, footer_text)
         
-        system_text = "Oryxpace - Infinite Flight Simulator Evaluation System"
+        system_text = "Oryxspace - Infinite Flight Simulator Evaluation System"
         self.drawString(54, 36, system_text)
         
         # Header thin rule & category title (only on pages > 1)
@@ -220,9 +222,36 @@ def generate_evaluation_pdf(data):
     grade_percentage = (score_earned / total_score * 100) if total_score > 0 else 0
     passed = data.get("final_decision", "PASS").upper() == "PASS"
     
-    # Document Header
-    story.append(Paragraph("FLIGHT EVALUATION REPORT", title_style))
-    story.append(Paragraph("Infinite Flight Simulator Trainee Performance Checklist", subtitle_style))
+    # Document Header with Qatar Virtual Brand Logo
+    logo_path = os.path.join(settings.BASE_DIR.parent, 'assets', 'Qatar_Virtual_logo.PNG')
+    title_p = Paragraph("FLIGHT EVALUATION REPORT", title_style)
+    subtitle_p = Paragraph("Infinite Flight Simulator Trainee Performance Checklist", subtitle_style)
+    titles_container = [title_p, subtitle_p]
+    
+    if os.path.exists(logo_path):
+        try:
+            # Let's set a standard height and width to maintain aspect ratio (3:1)
+            logo_img = Image(logo_path, width=120, height=40)
+            header_table = Table([[titles_container, logo_img]], colWidths=[364, 140])
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (0,0), 'LEFT'),
+                ('ALIGN', (1,0), (1,0), 'RIGHT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+            ]))
+            story.append(header_table)
+        except Exception as e:
+            print(f"Error adding logo to PDF: {e}")
+            story.append(title_p)
+            story.append(subtitle_p)
+    else:
+        story.append(title_p)
+        story.append(subtitle_p)
+        
+    story.append(Spacer(1, 15))
     
     # 2-Column Metadata & Score Block
     # Widths total 504 pt (Letter width 612 - margins 108)
@@ -232,15 +261,20 @@ def generate_evaluation_pdf(data):
     # Metadata sub-table
     meta_data = [
         [Paragraph("TRAINEE PILOT", meta_label_style), Paragraph("FLIGHT INSTRUCTOR (FI)", meta_label_style)],
-        [Paragraph(f"<b>{data['trainee_name']}</b> ({data['trainee_callsign']})", meta_val_style), Paragraph(data['instructor_name'], meta_val_style)],
+        [
+            Paragraph(f"<b>{data['trainee_name']}</b> ({data['trainee_callsign']})", meta_val_style), 
+            Paragraph(f"<b>{data['instructor_name']}</b> ({data.get('instructor_callsign', 'QRV')})", meta_val_style)
+        ],
         [Spacer(1, 4), Spacer(1, 4)],
-        [Paragraph("FLIGHT CALLSIGN", meta_label_style), Paragraph("EVALUATION DATE", meta_label_style)],
-        [Paragraph(data['flight_callsign'], meta_val_style), Paragraph(data['flight_date'], meta_val_style)]
+        [Paragraph("EVALUATION DATE", meta_label_style), ""],
+        [Paragraph(data['flight_date'], meta_val_style), ""]
     ]
     meta_sub_table = Table(meta_data, colWidths=[177, 177])
     meta_sub_table.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('SPAN', (0, 3), (1, 3)),
+        ('SPAN', (0, 4), (1, 4)),
         ('BOTTOMPADDING', (0,0), (-1,-1), 1),
         ('TOPPADDING', (0,0), (-1,-1), 1),
     ]))

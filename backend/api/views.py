@@ -173,8 +173,8 @@ def generate_pdf(request):
             "trainee_name": data.get("trainee_name", "Trainee Pilot"),
             "trainee_callsign": data.get("trainee_callsign", "QRV"),
             "instructor_name": data.get("instructor_name", "Flight Instructor"),
+            "instructor_callsign": data.get("instructor_callsign", "QRV"),
             "flight_date": data.get("flight_date", datetime.date.today().strftime("%Y-%m-%d")),
-            "flight_callsign": data.get("flight_callsign", "QATAR"),
             "general_remarks": data.get("general_remarks", ""),
             "final_decision": data.get("final_decision", "PASS"),
             "answers": enriched_answers
@@ -224,4 +224,10 @@ def lookup_pilot(request):
                 })
     except Exception as e:
         return Response({"error": f"Failed to lookup pilot: {str(e)}"}, status=500)
+
+@api_view(['POST'])
+def log_error(request):
+    message = request.data.get('message', 'No message provided')
+    print(f"\n[FRONTEND ERROR LOG] {message}\n")
+    return Response({"status": "logged"})
 

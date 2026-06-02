@@ -39,10 +39,19 @@ function Dashboard() {
         </div>
         <div className="bg-brand-card border border-brand-border p-3 px-5 rounded-2xl shadow-xl flex items-center justify-center">
           <img 
-            src={`${API_BASE_URL}/static/Qatar_virtual_logo_white.PNG`} 
+            src="/static/Qatar_Virtual_logo.PNG" 
             alt="Qatar Virtual Logo" 
             className="h-12 w-auto object-contain"
-            onError={(e) => { e.target.style.display = 'none'; }} /* Fallback if server is starting */
+            onLoad={() => console.log("[Dashboard Logo] Loaded successfully from relative /static/Qatar_Virtual_logo.PNG")}
+            onError={(e) => {
+              console.error("[Dashboard Logo] Failed to load!", e.target.src);
+              // Send log to Django server console
+              fetch("/api/log/", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `[Dashboard Logo Error] Failed to load image from src: ${e.target.src}. Current frontend URL: ${window.location.href}` })
+              }).catch(() => {});
+            }}
           />
         </div>
       </div>
