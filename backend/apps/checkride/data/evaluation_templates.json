@@ -1,6 +1,32 @@
 [
   {
+    "id": "FP1",
+    "category": "Flight Callsign Procedure",
+    "points": 1,
+    "question": "What was the callsign of the trainee in flight?",
+    "options": [
+      "Correct callsign used",
+      "Wrong callsign used"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "procedureDetails": "Callsign for flight will be Qatari {callsign_num}CR."
+  },
+  {
     "id": "FP2",
+    "category": "Main Switch Procedure",
+    "points": 1,
+    "question": "Was the Main Switch turned on correctly?",
+    "options": [
+      "Yes, correctly switched on",
+      "No, trainee first tried to turn on engines instead of main switch"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "procedureDetails": "The Main Switch must be turned on first before starting the engines."
+  },
+  {
+    "id": "FP4",
     "category": "Engine Start Procedure",
     "points": 1,
     "question": "When were both engines started?",
@@ -10,12 +36,10 @@
     ],
     "allowOther": true,
     "correctAnswerIndex": 0,
-    "correctStatement": "Correct Engine starting procedure ✅",
-    "wrongStatement": "Both engines should start one by one not together.",
     "procedureDetails": "First Start Engine 1, wait for N1 to become 20% (will show as a green box), then start the 2nd Engine and wait for it to also reach 20% N1 (green box)."
   },
   {
-    "id": "FP1",
+    "id": "FP3",
     "category": "Beacon and NAV Light Procedure",
     "points": 1,
     "question": "When were the Beacon and NAV Lights turned on?",
@@ -25,12 +49,10 @@
     ],
     "allowOther": true,
     "correctAnswerIndex": 0,
-    "correctStatement": "Correct Beacon and NAV Light Procedure ✅",
-    "wrongStatement": "Both lights should be turned on when the 1st engine is started.",
     "procedureDetails": "Beacon and NAV lights must be turned on immediately prior to starting the first engine to indicate the aircraft is about to move or start engines."
   },
   {
-    "id": "FP3",
+    "id": "FP5",
     "category": "Taxi Speed - Straight Line",
     "points": 1,
     "question": "What was the ground speed during straight line taxiing?",
@@ -40,12 +62,10 @@
     ],
     "allowOther": true,
     "correctAnswerIndex": 0,
-    "correctStatement": "Correct Taxiing Speed ✅",
-    "wrongStatement": "Ground speed should be less than or equal to 25 knots during straight line.",
     "procedureDetails": "During straight line taxiing, maintain a ground speed of 25 knots or less to ensure safe aircraft control."
   },
   {
-    "id": "FP4",
+    "id": "FP6",
     "category": "Taxi Speed - 90-Degree Turns",
     "points": 1,
     "question": "What was the ground speed during 90-degree turns?",
@@ -55,8 +75,21 @@
     ],
     "allowOther": true,
     "correctAnswerIndex": 0,
-    "correctStatement": "Correct Turning Speed ✅",
-    "wrongStatement": "Ground speed should be less than 10 knots during 90 degree turns.",
     "procedureDetails": "When performing a 90-degree turn, ground speed should be reduced to less than 10 knots to prevent excessive side loads on the landing gear and maintain safety."
+  },
+  {
+    "id": "FP7",
+    "category": "Hold Short Line Procedure",
+    "points": 1,
+    "question": "Was stopping at the Hold Short Line required and completed correctly?",
+    "options": [
+      "Yes, Hold Short was required and completed correctly ✅",
+      "Yes, Hold Short was required but not completed correctly ⚠️",
+      "No, Hold Short was not required during this flight ✅"
+    ],
+    "allowOther": true,
+    "correctAnswerIndex": 0,
+    "optionalAnswerIndex": 2,
+    "procedureDetails": "When stopping at HSL, ensure entire aircraft starting from nose should be behind the line and not just the front landing gear"
   }
 ]

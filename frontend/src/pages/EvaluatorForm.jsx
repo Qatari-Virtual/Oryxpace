@@ -61,8 +61,7 @@ function EvaluatorForm() {
         question: ans.question,
         selected_option: ans.selected_option,
         is_correct: ans.is_correct,
-        correct_statement: ans.correct_statement,
-        wrong_statement: ans.wrong_statement,
+        is_optional: ans.optional_answer_index !== undefined && ans.selected_option_index === ans.optional_answer_index,
         procedure_details: ans.procedure_details
       }))
     }
@@ -222,8 +221,7 @@ function EvaluatorForm() {
             category: q.category,
             question: q.question,
             points: q.points || 1,
-            correct_statement: q.correctStatement,
-            wrong_statement: q.wrongStatement,
+            optional_answer_index: q.optionalAnswerIndex,
             procedure_details: q.procedureDetails,
             selected_option: '',
             options: [...q.options],
@@ -250,12 +248,19 @@ function EvaluatorForm() {
       const ans = answers[q.id]
       if (ans) {
         const pts = Number(ans.points) || 0
-        totalPoints += pts
-        if (ans.selected_option_index !== null) {
-          answeredCount++
-          const isCorrect = !ans.is_other && (ans.selected_option_index === q.correctAnswerIndex)
-          if (isCorrect) {
-            pointsEarned += pts
+        const isOptionalSelected = q.optionalAnswerIndex !== undefined && ans.selected_option_index === q.optionalAnswerIndex
+        if (!isOptionalSelected) {
+          totalPoints += pts
+          if (ans.selected_option_index !== null) {
+            answeredCount++
+            const isCorrect = !ans.is_other && (ans.selected_option_index === q.correctAnswerIndex)
+            if (isCorrect) {
+              pointsEarned += pts
+            }
+          }
+        } else {
+          if (ans.selected_option_index !== null) {
+            answeredCount++
           }
         }
       }
@@ -286,7 +291,11 @@ function EvaluatorForm() {
         selectedOptionText = ans.options[optionIdx]
       }
       
-      const isCorrect = isOther ? false : (optionIdx === questions.find(q => q.id === qId).correctAnswerIndex)
+      const targetQ = questions.find(q => q.id === qId)
+      const isCorrect = isOther ? false : (
+        optionIdx === targetQ.correctAnswerIndex || 
+        (targetQ.optionalAnswerIndex !== undefined && optionIdx === targetQ.optionalAnswerIndex)
+      )
       
       return {
         ...prev,
@@ -462,8 +471,7 @@ function EvaluatorForm() {
         question: ans.question,
         selected_option: ans.selected_option,
         is_correct: ans.is_correct,
-        correct_statement: ans.correct_statement,
-        wrong_statement: ans.wrong_statement,
+        is_optional: ans.optional_answer_index !== undefined && ans.selected_option_index === ans.optional_answer_index,
         procedure_details: ans.procedure_details
       }))
     }
@@ -818,13 +826,9 @@ function EvaluatorForm() {
                       <h4 className="text-xs font-bold text-accent uppercase tracking-wide">Correct Flight Operation Criteria</h4>
                       
                       <div className="space-y-2 text-xs">
-                        <p className="text-orange-700 font-bold flex items-center gap-1.5">
-                          <span className="select-none">⚠️ Common Mistake:</span>
-                          <span>{q.wrongStatement}</span>
-                        </p>
                         <div className="text-slate-700 leading-relaxed">
                           <span className="font-bold text-slate-500 block text-[10px] uppercase">Correct Technique/Procedure Guide:</span>
-                          <span className="block mt-0.5">{q.procedureDetails}</span>
+                          <span className="block mt-0.5">{(q.procedureDetails || '').replace("{callsign_num}", metadata.trainee_callsign.replace(/\D/g, '') || "___")}</span>
                         </div>
                       </div>
                     </div>

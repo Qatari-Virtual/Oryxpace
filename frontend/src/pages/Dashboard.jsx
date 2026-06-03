@@ -42,16 +42,6 @@ function Dashboard() {
             src={`${API_BASE_URL}/static/Qatar_Virtual_logo.PNG`} 
             alt="Qatar Virtual Logo" 
             className="h-12 w-auto object-contain"
-            onLoad={() => console.log(`[Dashboard Logo] Loaded successfully from ${API_BASE_URL}/static/Qatar_Virtual_logo.PNG`)}
-            onError={(e) => {
-              console.error("[Dashboard Logo] Failed to load!", e.target.src);
-              // Send log to Django server console
-              fetch("/api/log/", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `[Dashboard Logo Error] Failed to load image from src: ${e.target.src}. Current frontend URL: ${window.location.href}` })
-              }).catch(() => {});
-            }}
           />
         </div>
       </div>

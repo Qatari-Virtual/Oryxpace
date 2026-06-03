@@ -1,5 +1,6 @@
 import io
 import os
+import json
 from django.conf import settings
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -53,32 +54,6 @@ class NumberedCanvas(canvas.Canvas):
 def generate_evaluation_pdf(data):
     """
     Generates a high-fidelity PDF report of the flight simulator evaluation.
-    data format:
-    {
-        "trainee_name": "Ayush",
-        "trainee_callsign": "QRV108",
-        "instructor_name": "Bumy",
-        "flight_date": "2026-05-30",
-        "flight_callsign": "QATAR 108",
-        "general_remarks": "Overall good flight, but needs work on ground taxi speeds and procedure sequencing...",
-        "answers": [
-            {
-                "id": "FP2",
-                "question": "When were both engines started?",
-                "category": "Engine Start Procedure",
-                "selected_option": "Both started together",
-                "is_correct": False,
-                "is_other": False,
-                "other_text": "",
-                "extra_feedback": "Felt a bit rushed here. Take your time.",
-                "correct_statement": "Correct Engine starting procedure ✅",
-                "wrong_statement": "Both engines should start one by one not together.",
-                "procedure_details": "First Start Engine 1, wait for N1 to become 20%...",
-                "points": 1
-            },
-            ...
-        ]
-    }
     """
     buffer = io.BytesIO()
     
@@ -217,8 +192,8 @@ def generate_evaluation_pdf(data):
     )
     
     # Math calculation
-    total_score = sum(item.get("points", 1) for item in data["answers"])
-    score_earned = sum(item.get("points", 1) for item in data["answers"] if item.get("is_correct", False))
+    total_score = sum(item.get("points", 1) for item in data["answers"] if not item.get("is_optional", False))
+    score_earned = sum(item.get("points", 1) for item in data["answers"] if item.get("is_correct", False) and not item.get("is_optional", False))
     grade_percentage = (score_earned / total_score * 100) if total_score > 0 else 0
     passed = data.get("final_decision", "PASS").upper() == "PASS"
     
@@ -337,8 +312,23 @@ def generate_evaluation_pdf(data):
     # Step-by-Step Procedure Checklist Evaluation
     story.append(Paragraph("DETAILED PERFORMANCE EVALUATION CHECKLIST", section_title_style))
     
+    # Load procedure guides mapping (optional guides/photos for wrong answers)
+    guides_map = {}
+    guides_json_path = os.path.join(settings.BASE_DIR, 'apps', 'checkride', 'data', 'procedure_guides.json')
+    if os.path.exists(guides_json_path):
+        try:
+            with open(guides_json_path, 'r', encoding='utf-8') as f:
+                guides_map = json.load(f)
+        except Exception as e:
+            print(f"Error loading procedure guides JSON: {e}")
+
+    # Sort answers alphabetically by ID (FP1 -> FP2 -> FP3 -> FP4) for logical flight phase sequence in PDF
+    sorted_answers = sorted(data["answers"], key=lambda x: x.get("id", ""))
+    
     # Loop over categories/answers
-    for idx, ans in enumerate(data["answers"]):
+    for idx, ans in enumerate(sorted_answers):
+        if ans.get("is_optional", False):
+            continue
         question_block = []
         
         # Header for the question item
@@ -408,6 +398,48 @@ def generate_evaluation_pdf(data):
                 ('RIGHTPADDING', (0,0), (0,0), 10),
             ]))
             question_block.append(std_table)
+            
+            # 2b. Explanatory Photo (only shown if incorrect and image path mapped in guides_map)
+            q_id = ans.get("id")
+            if q_id in guides_map:
+                guide_info = guides_map[q_id]
+                rel_img_path = guide_info.get("image_path")
+                if rel_img_path:
+                    abs_img_path = os.path.join(settings.BASE_DIR.parent, rel_img_path)
+                    if os.path.exists(abs_img_path):
+                        try:
+                            question_block.append(Spacer(1, 8))
+                            img_w = guide_info.get("display_width", 380)
+                            img_h = guide_info.get("display_height", 180)
+                            guide_img = Image(abs_img_path, width=img_w, height=img_h)
+                            
+                            # Center the image
+                            img_table = Table([[guide_img]], colWidths=[480])
+                            img_table.setStyle(TableStyle([
+                                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                                ('TOPPADDING', (0,0), (-1,-1), 0),
+                                ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+                            ]))
+                            question_block.append(img_table)
+                            
+                            # Caption
+                            caption_text = guide_info.get("caption")
+                            if caption_text:
+                                caption_style = ParagraphStyle(
+                                    'ImgCaption', 
+                                    parent=body_style, 
+                                    fontName='Helvetica-Oblique', 
+                                    fontSize=8, 
+                                    textColor=colors.HexColor("#64748b"),
+                                    alignment=TA_CENTER
+                                )
+                                question_block.append(Spacer(1, 4))
+                                question_block.append(Paragraph(caption_text, caption_style))
+                        except Exception as img_err:
+                            print(f"Error rendering guide image in PDF: {img_err}")
             
         # 3. Instructor Remarks Block (if present)
         if ans.get("extra_feedback"):
