@@ -1,6 +1,10 @@
 {
-  "FP7": {
+  "FP9": {
     "image_path": "assets/guides/HSL.png",
     "caption": "Hold Short Line: Nose of the aircraft must remain fully behind the solid line."
+  },
+  "FP26": {
+    "image_path": "assets/guides/flaps_setting.png",
+    "caption": "Approach Flaps: Flap deployment should follow standard speed schedules."
   }
 }
