@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '../config'
 import { 
@@ -228,7 +228,36 @@ function EvaluatorForm() {
             is_correct: null
           }
         })
-        setAnswers(initialAnswers)
+
+        // Restore draft from localStorage if available
+        const savedDraft = localStorage.getItem('checkride_evaluation_draft')
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft)
+            if (parsed.metadata) setMetadata(parsed.metadata)
+            if (parsed.callsignNum) setCallsignNum(parsed.callsignNum)
+            if (parsed.fiCallsignNum) setFiCallsignNum(parsed.fiCallsignNum)
+            if (parsed.finalDecision) setFinalDecision(parsed.finalDecision)
+            
+            // Merge loaded answers into initialAnswers to keep templates fresh
+            const mergedAnswers = { ...initialAnswers }
+            Object.keys(parsed.answers || {}).forEach(key => {
+              if (mergedAnswers[key]) {
+                mergedAnswers[key] = {
+                  ...mergedAnswers[key],
+                  ...parsed.answers[key]
+                }
+              }
+            })
+            setAnswers(mergedAnswers)
+          } catch (e) {
+            console.error("Failed to restore evaluation draft", e)
+            setAnswers(initialAnswers)
+          }
+        } else {
+          setAnswers(initialAnswers)
+        }
+        
         setLoading(false)
       })
       .catch(err => {
@@ -237,6 +266,20 @@ function EvaluatorForm() {
         setLoading(false)
       })
   }, [])
+
+  // Auto-save draft changes to localStorage
+  useEffect(() => {
+    if (Object.keys(answers).length > 0) {
+      const draft = {
+        answers,
+        metadata,
+        callsignNum,
+        fiCallsignNum,
+        finalDecision
+      }
+      localStorage.setItem('checkride_evaluation_draft', JSON.stringify(draft))
+    }
+  }, [answers, metadata, callsignNum, fiCallsignNum, finalDecision])
 
   // Calculate live score using user-customized points and correctness states
   const calculateScore = () => {
@@ -377,6 +420,7 @@ function EvaluatorForm() {
 
   const resetForm = () => {
     if (window.confirm('Are you sure you want to reset the current checklist?')) {
+      localStorage.removeItem('checkride_evaluation_draft')
       const resetAnswers = {}
       questions.forEach(q => {
         resetAnswers[q.id] = {
@@ -385,7 +429,15 @@ function EvaluatorForm() {
           is_other: false,
           other_text: '',
           extra_feedback: '',
-          showComments: false
+          showComments: false,
+          category: q.category,
+          question: q.question,
+          points: q.points || 1,
+          optional_answer_index: q.optionalAnswerIndex,
+          procedure_details: q.procedureDetails,
+          selected_option: '',
+          options: [...q.options],
+          is_correct: null
         }
       })
       setAnswers(resetAnswers)
@@ -507,6 +559,8 @@ function EvaluatorForm() {
       })
   }
 
+  const scoreStats = useMemo(() => calculateScore(), [answers, questions])
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
@@ -528,8 +582,6 @@ function EvaluatorForm() {
       </div>
     )
   }
-
-  const scoreStats = calculateScore()
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fade-in pb-16">
@@ -667,7 +719,7 @@ function EvaluatorForm() {
         <div className="space-y-6">
           {questions.map((q, idx) => {
             const ans = answers[q.id] || {}
-            const isAnswered = ans.selected_option_index !== null
+            const isAnswered = ans.selected_option_index !== null && ans.selected_option_index !== undefined
             const isCorrect = isAnswered && !ans.is_other && (ans.selected_option_index === q.correctAnswerIndex)
             
             return (
@@ -721,12 +773,14 @@ function EvaluatorForm() {
 
                   {/* Options List */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(ans.options || []).map((opt, optIdx) => {
+                    {(ans.options || q.options || []).map((opt, optIdx) => {
                       const isSelected = ans.selected_option_index === optIdx && !ans.is_other
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={optIdx}
-                          className={`flex items-center p-3 px-4 rounded-xl transition-all duration-200 gap-3 border ${
+                          onClick={() => handleSelectOption(q.id, optIdx, false)}
+                          className={`w-full flex items-center p-3 px-4 rounded-xl transition-all duration-200 gap-3 border text-left cursor-pointer ${
                             isSelected 
                               ? optIdx === q.correctAnswerIndex
                                 ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600'
@@ -734,27 +788,21 @@ function EvaluatorForm() {
                               : 'bg-brand-bg border-slate-300 text-slate-600 hover:bg-brand-border/30'
                           }`}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleSelectOption(q.id, optIdx, false)}
-                            className="flex-shrink-0 flex items-center justify-center cursor-pointer"
-                          >
-                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                              isSelected 
-                                ? optIdx === q.correctAnswerIndex
-                                  ? 'border-emerald-500 bg-emerald-500 text-slate-950 font-bold'
-                                  : 'border-orange-500 bg-orange-500 text-slate-950 font-bold'
-                                : 'border-slate-400'
-                            }`}>
-                              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950"></span>}
-                            </div>
-                          </button>
+                          <div className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                            isSelected 
+                              ? optIdx === q.correctAnswerIndex
+                                ? 'border-emerald-500 bg-emerald-500 text-slate-950 font-bold'
+                                : 'border-orange-500 bg-orange-500 text-slate-950 font-bold'
+                              : 'border-slate-400'
+                          }`}>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950"></span>}
+                          </div>
                           
                           {/* Option text */}
                           <span className="font-medium text-xs md:text-sm text-slate-700">
                             {opt}
                           </span>
-                        </div>
+                        </button>
                       )
                     })}
 
@@ -762,7 +810,7 @@ function EvaluatorForm() {
                     {q.allowOther && (
                       <button
                         type="button"
-                        onClick={() => handleSelectOption(q.id, ans.options.length, true)}
+                        onClick={() => handleSelectOption(q.id, (ans.options || q.options || []).length, true)}
                         className={`btn p-4 h-auto min-h-12 rounded-xl text-left flex justify-start items-center transition-all duration-200 gap-3 border col-span-1 md:col-span-2 ${
                           ans.is_other
                             ? 'bg-orange-500/10 border-orange-500 text-orange-600 hover:bg-orange-500/20'
