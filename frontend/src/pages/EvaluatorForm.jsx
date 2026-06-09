@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useSelector } from 'react-redux'
 import axios from 'axios'
 import { API_BASE_URL } from '../config'
 import { 
@@ -20,15 +21,14 @@ import {
 } from 'lucide-react'
 
 function EvaluatorForm() {
+  const user = useSelector((state) => state.app.user)
   const [questions, setQuestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [callsignNum, setCallsignNum] = useState('')
-  const [fiCallsignNum, setFiCallsignNum] = useState('')
   const [searchingPilot, setSearchingPilot] = useState(false)
   const [pilotMatched, setPilotMatched] = useState(false)
-  const [fiMatched, setFiMatched] = useState(false)
   const [finalDecision, setFinalDecision] = useState('')
   const [pdfBlobUrl, setPdfBlobUrl] = useState('')
   const [compilingPreview, setCompilingPreview] = useState(false)
@@ -44,11 +44,24 @@ function EvaluatorForm() {
     general_remarks: ''
   })
 
+  // Pre-fill Instructor Details from logged-in user session
+  useEffect(() => {
+    if (user) {
+      setMetadata(prev => ({
+        ...prev,
+        instructor_name: user.name,
+        instructor_callsign: user.callsign
+      }))
+    }
+  }, [user])
+
   // Trigger live ReportLab PDF compilation and stream it as a Blob URL to the iframe previewer
   const updatePdfPreview = () => {
     // Generate answers payload using the latest edited text values in our local answers state
     const payload = {
       ...metadata,
+      instructor_name: user?.name || metadata.instructor_name || '',
+      instructor_callsign: user?.callsign || metadata.instructor_callsign || '',
       final_decision: finalDecision,
       answers: Object.values(answers).map(ans => ({
         question_id: ans.question_id,
@@ -111,91 +124,41 @@ function EvaluatorForm() {
     setPilotMatched(false)
   }
 
-  const handleFiCallsignInputChange = (e) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 3)
-    setFiCallsignNum(val)
-    handleMetadataChange('instructor_name', '')
-    handleMetadataChange('instructor_callsign', '')
-    setFiMatched(false)
-  }
-
-  // Trigger explicit database lookup for both trainee and instructor details on fetch button click
+  // Trigger explicit database lookup for trainee details on fetch button click
   const fetchPilotDetails = () => {
     if (!callsignNum) {
       alert('Trainee callsign is required.')
       return
     }
-    if (!fiCallsignNum) {
-      alert('FI callsign is required.')
-      return
-    }
-    if (!/^\d+$/.test(callsignNum) || !/^\d+$/.test(fiCallsignNum)) {
-      alert('Please enter valid 3-digit numeric callsigns.')
+    if (!/^\d+$/.test(callsignNum)) {
+      alert('Please enter a valid 3-digit numeric callsign.')
       return
     }
 
     setSearchingPilot(true)
     setPilotMatched(false)
-    setFiMatched(false)
 
-    const traineeReq = axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${callsignNum}`)
-    const fiReq = axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${fiCallsignNum}`)
-
-    Promise.all([traineeReq, fiReq])
-      .then(([traineeRes, fiRes]) => {
-        // 1. Process Trainee Result
-        if (traineeRes.data.found) {
-          handleMetadataChange('trainee_name', traineeRes.data.name)
-          handleMetadataChange('trainee_callsign', traineeRes.data.callsign)
+    axios.get(`${API_BASE_URL}/api/pilots/lookup/?callsign_num=${callsignNum}`)
+      .then(res => {
+        if (res.data.found) {
+          handleMetadataChange('trainee_name', res.data.name)
+          handleMetadataChange('trainee_callsign', res.data.callsign)
           setPilotMatched(true)
         } else {
           handleMetadataChange('trainee_name', 'Trainee Pilot')
           const padded = callsignNum.padStart(3, '0')
           handleMetadataChange('trainee_callsign', `QRV${padded}`)
           setPilotMatched(false)
-        }
-
-        // 2. Process FI Result
-        if (fiRes.data.found) {
-          handleMetadataChange('instructor_name', fiRes.data.name)
-          handleMetadataChange('instructor_callsign', fiRes.data.callsign)
-          setFiMatched(true)
-        } else {
-          handleMetadataChange('instructor_name', 'Flight Instructor')
-          const padded = fiCallsignNum.padStart(3, '0')
-          handleMetadataChange('instructor_callsign', `QRV${padded}`)
-          setFiMatched(false)
-        }
-
-        const traineeNotFound = !traineeRes.data.found
-        const fiNotFound = !fiRes.data.found
-        if (traineeNotFound || fiNotFound) {
-          let warnMsg = "Lookups completed with warnings:\n"
-          if (traineeNotFound) {
-            warnMsg += `- Active trainee pilot with callsign QRV${callsignNum.padStart(3, '0')} not found.\n`
-          }
-          if (fiNotFound) {
-            warnMsg += `- Active flight instructor with callsign QRV${fiCallsignNum.padStart(3, '0')} not found.\n`
-          }
-          warnMsg += "Using fallback details."
-          alert(warnMsg)
+          alert(`Active trainee pilot with callsign QRV${padded} not found. Using fallback details.`)
         }
         setSearchingPilot(false)
       })
       .catch(err => {
         console.error(err)
-        // Fallback trainee
         handleMetadataChange('trainee_name', 'Trainee Pilot')
         const paddedTrainee = callsignNum.padStart(3, '0')
         handleMetadataChange('trainee_callsign', `QRV${paddedTrainee}`)
         setPilotMatched(false)
-
-        // Fallback instructor
-        handleMetadataChange('instructor_name', 'Flight Instructor')
-        const paddedFi = fiCallsignNum.padStart(3, '0')
-        handleMetadataChange('instructor_callsign', `QRV${paddedFi}`)
-        setFiMatched(false)
-
         setSearchingPilot(false)
       })
   }
@@ -234,9 +197,14 @@ function EvaluatorForm() {
         if (savedDraft) {
           try {
             const parsed = JSON.parse(savedDraft)
-            if (parsed.metadata) setMetadata(parsed.metadata)
+            if (parsed.metadata) {
+              setMetadata({
+                ...parsed.metadata,
+                instructor_name: user?.name || parsed.metadata.instructor_name || '',
+                instructor_callsign: user?.callsign || parsed.metadata.instructor_callsign || ''
+              })
+            }
             if (parsed.callsignNum) setCallsignNum(parsed.callsignNum)
-            if (parsed.fiCallsignNum) setFiCallsignNum(parsed.fiCallsignNum)
             if (parsed.finalDecision) setFinalDecision(parsed.finalDecision)
             
             // Merge loaded answers into initialAnswers to keep templates fresh
@@ -274,12 +242,11 @@ function EvaluatorForm() {
         answers,
         metadata,
         callsignNum,
-        fiCallsignNum,
         finalDecision
       }
       localStorage.setItem('checkride_evaluation_draft', JSON.stringify(draft))
     }
-  }, [answers, metadata, callsignNum, fiCallsignNum, finalDecision])
+  }, [answers, metadata, callsignNum, finalDecision])
 
   // Calculate live score using user-customized points and correctness states
   const calculateScore = () => {
@@ -442,9 +409,7 @@ function EvaluatorForm() {
       })
       setAnswers(resetAnswers)
       setCallsignNum('')
-      setFiCallsignNum('')
       setPilotMatched(false)
-      setFiMatched(false)
       setFinalDecision('')
       if (pdfBlobUrl) {
         window.URL.revokeObjectURL(pdfBlobUrl)
@@ -453,8 +418,8 @@ function EvaluatorForm() {
       setMetadata({
         trainee_name: '',
         trainee_callsign: '',
-        instructor_name: '',
-        instructor_callsign: '',
+        instructor_name: user?.name || '',
+        instructor_callsign: user?.callsign || '',
         flight_date: new Date().toISOString().split('T')[0],
         general_remarks: ''
       })
@@ -483,9 +448,12 @@ function EvaluatorForm() {
   const handleSubmit = (e) => {
     e.preventDefault()
     
+    const finalInstructorName = user?.name || metadata.instructor_name || ''
+    const finalInstructorCallsign = user?.callsign || metadata.instructor_callsign || ''
+
     // Check if metadata fields are filled
-    if (!metadata.trainee_name || !metadata.trainee_callsign || !metadata.instructor_name || !metadata.instructor_callsign) {
-      alert('Please fill in both Callsigns and click Fetch Details in the card above.')
+    if (!metadata.trainee_name || !metadata.trainee_callsign || !finalInstructorName || !finalInstructorCallsign) {
+      alert('Please fill in trainee callsign and click Fetch Details in the card above.')
       return
     }
 
@@ -511,6 +479,8 @@ function EvaluatorForm() {
     // Build API payload
     const payload = {
       ...metadata,
+      instructor_name: finalInstructorName,
+      instructor_callsign: finalInstructorCallsign,
       final_decision: finalDecision,
       answers: Object.values(answers).map(ans => ({
         question_id: ans.question_id,
@@ -560,6 +530,9 @@ function EvaluatorForm() {
   }
 
   const scoreStats = useMemo(() => calculateScore(), [answers, questions])
+  const unansweredQuestions = useMemo(() => {
+    return questions.filter(q => !answers[q.id] || answers[q.id].selected_option_index === null)
+  }, [answers, questions])
 
   if (loading) {
     return (
@@ -604,17 +577,17 @@ function EvaluatorForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Trainee & Instructor Details Card */}
+        {/* Trainee Details Card */}
         <div className="card bg-brand-card border border-brand-border shadow-xl rounded-2xl p-6">
           <div className="flex items-center gap-2 text-primary mb-4 font-bold tracking-wider text-xs">
             <User className="w-4 h-4" />
-            <span>TRAINEE & INSTRUCTOR DETAILS</span>
+            <span>TRAINEE PILOT DETAILS</span>
           </div>
           
           <div className="space-y-6">
             {/* Input & Fetch Button Row */}
             <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="form-control w-full sm:w-1/3">
+              <div className="form-control w-full sm:w-2/3">
                 <label className="label py-1">
                   <span className="label-text text-brand-text font-bold text-xs">TRAINEE CALLSIGN (3 DIGITS)</span>
                 </label>
@@ -628,24 +601,10 @@ function EvaluatorForm() {
                 />
               </div>
 
-              <div className="form-control w-full sm:w-1/3">
-                <label className="label py-1">
-                  <span className="label-text text-brand-text font-bold text-xs">FI CALLSIGN (3 DIGITS)</span>
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. 095" 
-                  value={fiCallsignNum}
-                  onChange={handleFiCallsignInputChange}
-                  className="input input-bordered bg-brand-card text-slate-800 rounded-xl focus:border-primary w-full border-slate-350"
-                  required
-                />
-              </div>
-
               <button
                 type="button"
                 onClick={fetchPilotDetails}
-                disabled={searchingPilot || !callsignNum || !fiCallsignNum}
+                disabled={searchingPilot || !callsignNum}
                 className="btn btn-primary h-12 px-6 rounded-xl font-bold flex-shrink-0 flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all w-full sm:w-auto"
               >
                 {searchingPilot ? (
@@ -660,8 +619,8 @@ function EvaluatorForm() {
             </div>
 
             {/* Read-Only Populated Info Grid */}
-            {(metadata.trainee_name || metadata.trainee_callsign || metadata.instructor_name || metadata.instructor_callsign) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-brand-border animate-fade-in">
+            {(metadata.trainee_name || metadata.trainee_callsign) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-brand-border animate-fade-in">
                 
                 {/* Trainee Name */}
                 <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
@@ -678,26 +637,6 @@ function EvaluatorForm() {
                     {pilotMatched ? (
                       <span className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
                     ) : metadata.trainee_callsign ? (
-                      <span className="text-[8px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Instructor Details */}
-                <div className="bg-brand-bg p-4 rounded-xl border border-brand-border/60">
-                  <span className="text-[10px] font-bold text-brand-subtext uppercase block tracking-wider">Flight Instructor (FI)</span>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-sm font-bold text-slate-800">
-                      {metadata.instructor_name || "Flight Instructor"}
-                    </span>
-                    {metadata.instructor_callsign && (
-                      <span className="text-xs font-mono text-primary font-bold">
-                        ({metadata.instructor_callsign})
-                      </span>
-                    )}
-                    {fiMatched ? (
-                      <span className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">DB MATCH</span>
-                    ) : metadata.instructor_callsign ? (
                       <span className="text-[8px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">FALLBACK</span>
                     ) : null}
                   </div>
@@ -725,6 +664,7 @@ function EvaluatorForm() {
             return (
               <div 
                 key={q.id} 
+                id={q.id} 
                 className={`card bg-brand-card border rounded-2xl shadow-xl transition-all duration-300 ${
                   isAnswered 
                     ? isCorrect 
@@ -905,6 +845,36 @@ function EvaluatorForm() {
             />
           </div>
         </div>
+
+        {/* Unanswered Questions Warning Box */}
+        {unansweredQuestions.length > 0 && (
+          <div className="card bg-amber-500/10 border border-amber-500/35 rounded-2xl p-6 shadow-xl text-amber-900 space-y-3 animate-fade-in">
+            <div className="flex items-center gap-2 font-bold text-sm tracking-wide text-amber-700">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <span>UNANSWERED PROCEDURES PENDING EVALUATION</span>
+            </div>
+            <p className="text-xs font-semibold leading-relaxed text-slate-700">
+              To complete the checkride evaluation and compile the feedback report, please answer all flight procedures. The following procedures are still pending (click to scroll directly to the card):
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {unansweredQuestions.map(q => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById(q.id)
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }
+                  }}
+                  className="badge badge-warning border-amber-600 bg-amber-500/20 text-amber-950 font-extrabold hover:bg-amber-500/30 cursor-pointer transition-all px-3 py-2 text-xs"
+                >
+                  {q.id}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* FI Final Decision & Summary Panel (Slides open when form is fully evaluated) */}
         {finalDecision && (

@@ -34,3 +34,7 @@ db.sqlite3
 .DS_Store
 Thumbs.db
 *.bat
+
+# Dynamic Signature Caches & Scratch Scripts
+assets/signatures/
+scratch/

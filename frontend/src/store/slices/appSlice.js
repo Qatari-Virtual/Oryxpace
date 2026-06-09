@@ -1,11 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit'
 
 const initialState = {
-  user: {
-    username: 'Ayush [QRV]',
-    role: 'Co-Founder',
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Ayush',
-  },
+  user: null,
+  token: localStorage.getItem('token'),
   sidebarOpen: true,
   activeTicketsCount: 3,
   notifications: [
@@ -34,6 +31,15 @@ export const appSlice = createSlice({
     },
     setTicketsCount: (state, action) => {
       state.activeTicketsCount = action.payload
+    },
+    setCredentials: (state, action) => {
+      state.user = action.payload.user
+      state.token = action.payload.token
+    },
+    logout: (state) => {
+      state.user = null
+      state.token = null
+      localStorage.removeItem('token')
     }
   },
 })
@@ -42,7 +48,10 @@ export const {
   toggleSidebar, 
   addNotification, 
   markAllNotificationsRead,
-  setTicketsCount 
+  setTicketsCount,
+  setCredentials,
+  logout
 } = appSlice.actions
 
 export default appSlice.reducer
+

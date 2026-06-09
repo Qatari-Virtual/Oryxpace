@@ -7,6 +7,7 @@ import datetime
 import os
 import json
 from services.pdf_service import generate_evaluation_pdf
+from apps.authentication.auth_backend import get_pilot_permissions
 
 @api_view(['GET'])
 def get_questions(request):
@@ -21,6 +22,12 @@ def get_questions(request):
 @api_view(['POST'])
 def generate_pdf(request):
     try:
+        # Check permissions (bypass for system API key)
+        if not getattr(request.user, 'is_system_key', False):
+            permissions = get_pilot_permissions(request.user.id)
+            if 'pirepmanage' not in permissions and 'admin' not in permissions:
+                return Response({"error": "You do not have permission to generate evaluation PDFs."}, status=403)
+
         data = request.data
         
         # Load active templates
@@ -114,6 +121,12 @@ def generate_pdf(request):
 @api_view(['GET'])
 def lookup_pilot(request):
     try:
+        # Check permissions (bypass for system API key)
+        if not getattr(request.user, 'is_system_key', False):
+            permissions = get_pilot_permissions(request.user.id)
+            if 'pirepmanage' not in permissions and 'admin' not in permissions:
+                return Response({"error": "You do not have permission to lookup pilots."}, status=403)
+
         callsign_num = request.GET.get('callsign_num', '').strip()
         if not callsign_num:
             return Response({"found": False, "message": "Callsign number is required."})

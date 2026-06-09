@@ -138,6 +138,73 @@ def classify_question(q_id):
         return "Ground Operations"
     return "Systems & Procedures"
 
+def get_cached_signature_path(callsign):
+    import urllib.request
+    import urllib.error
+    
+    if not callsign:
+        return None
+    clean_callsign = "".join(filter(str.isalnum, callsign)).upper()
+    
+    # Load dynamic signatures mapping from JSON config
+    signatures_map = {}
+    json_path = os.path.join(settings.BASE_DIR, 'apps', 'checkride', 'data', 'signatures_config.json')
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                signatures_map = json.load(f)
+        except Exception as e:
+            print(f"Error loading signatures config JSON: {e}")
+            
+    if clean_callsign not in signatures_map:
+        return None
+        
+    url = signatures_map[clean_callsign]
+    
+    signatures_dir = os.path.join(settings.BASE_DIR.parent, 'assets', 'signatures')
+    if not os.path.exists(signatures_dir):
+        os.makedirs(signatures_dir, exist_ok=True)
+        
+    ext = ".png"
+    if ".jpg" in url.lower() or ".jpeg" in url.lower():
+        ext = ".jpg"
+        
+    local_path = os.path.join(signatures_dir, f"{clean_callsign}{ext}")
+    if os.path.exists(local_path):
+        return local_path
+        
+    try:
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            with open(local_path, 'wb') as f:
+                f.write(response.read())
+        return local_path
+    except Exception as e:
+        print(f"Error downloading signature for {clean_callsign}: {e}")
+        return None
+
+def get_centered_sig_image(image_path, cell_width, width=100, height=35):
+    if not image_path or not os.path.exists(image_path):
+        return ""
+    try:
+        img = Image(image_path, width=width, height=height)
+        t = Table([[img]], colWidths=[cell_width])
+        t.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        return t
+    except Exception as e:
+        print(f"Error creating signature flowable: {e}")
+        return ""
+
 def generate_evaluation_pdf(data):
     """
     Generates a high-fidelity training report PDF.
@@ -162,16 +229,6 @@ def generate_evaluation_pdf(data):
     border_color = colors.HexColor("#E2E8F0")     # Light gray
     main_text_color = colors.HexColor("#334155")  # Dark slate text
     
-    # Load severity configuration
-    severity_map = {}
-    severity_json_path = os.path.join(settings.BASE_DIR, 'apps', 'checkride', 'data', 'severity_config.json')
-    if os.path.exists(severity_json_path):
-        try:
-            with open(severity_json_path, 'r', encoding='utf-8') as f:
-                severity_map = json.load(f)
-        except Exception as e:
-            print(f"Error loading severity configuration: {e}")
-            
     # Load procedure guides mapping (optional guides/photos for wrong answers)
     guides_map = {}
     guides_json_path = os.path.join(settings.BASE_DIR, 'apps', 'checkride', 'data', 'procedure_guides.json')
@@ -215,16 +272,8 @@ def generate_evaluation_pdf(data):
     best_cat = max(cat_percentages, key=cat_percentages.get)
     worst_cat = min(cat_percentages, key=cat_percentages.get)
     
-    # Extract Critical deficiencies
-    critical_failures = []
-    minor_failures = []
-    for ans in valid_answers:
-        if not ans.get("is_correct", False):
-            sev = severity_map.get(ans["id"], "minor")
-            if sev == "critical":
-                critical_failures.append(ans)
-            else:
-                minor_failures.append(ans)
+    # Extract deficiencies
+    failures = [ans for ans in valid_answers if not ans.get("is_correct", False)]
                 
     # Define styles
     title_style = ParagraphStyle('DocTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=20, leading=24, textColor=primary_color)
@@ -357,8 +406,7 @@ def generate_evaluation_pdf(data):
     metric_labels = [
         [Paragraph("CHECKLIST STATS", card_title_style), ""],
         [Paragraph("Passed Evaluated Checks", body_style), Paragraph(f"<b>{passed_checks}</b> / {total_checks}", ParagraphStyle('CR', fontName='Helvetica', fontSize=9, alignment=TA_RIGHT))],
-        [Paragraph("Deficiencies (Errors)", body_style), Paragraph(f"<b>{failed_checks}</b>", ParagraphStyle('CR', fontName='Helvetica', fontSize=9, alignment=TA_RIGHT))],
-        [Paragraph("Critical Deficiencies", body_style), Paragraph(f"<b>{len(critical_failures)}</b>", ParagraphStyle('CR', fontName='Helvetica', fontSize=9, alignment=TA_RIGHT, textColor=colors.HexColor("#B91C1C")))],
+        [Paragraph("Mistakes (Errors)", body_style), Paragraph(f"<b>{failed_checks}</b>", ParagraphStyle('CR', fontName='Helvetica', fontSize=9, alignment=TA_RIGHT))],
         [Paragraph("Best Competency Area", body_style), Paragraph(f"<b>{best_cat}</b>", ParagraphStyle('CR', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT, textColor=colors.HexColor("#15803D")))],
         [Paragraph("Primary Deficit Area", body_style), Paragraph(f"<b>{worst_cat}</b>", ParagraphStyle('CR', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT, textColor=colors.HexColor("#B91C1C")))],
     ]
@@ -382,32 +430,6 @@ def generate_evaluation_pdf(data):
     story.append(radar_metric_table)
     story.append(Spacer(1, 10))
     
-    # Bottom Row: Critical Items
-    crit_list_items = []
-    if critical_failures:
-        for fail in critical_failures[:5]: # Show top 5 critical items
-            crit_list_items.append(Paragraph(f"• <b>{fail['category']}</b>: {fail['selected_option']}", ParagraphStyle('CritI', parent=body_style, textColor=colors.HexColor("#991B1B"))))
-    else:
-        crit_list_items.append(Paragraph("• No critical procedural deficiencies observed during this flight checkride.", body_style))
-        
-    crit_box_title = Paragraph("CRITICAL ITEMS REQUIRING REMEDIATION", ParagraphStyle('CritT', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white))
-    crit_box_table_content = [[crit_box_title]]
-    for item in crit_list_items:
-        crit_box_table_content.append([item])
-        
-    crit_box_table = Table(crit_box_table_content, colWidths=[504])
-    crit_box_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), colors.HexColor("#B91C1C")), # Red header
-        ('BACKGROUND', (0,1), (0,-1), colors.HexColor("#FEF2F2")), # Light red background
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#FCA5A5")),
-        ('LEFTPADDING', (0,0), (-1,-1), 10),
-        ('RIGHTPADDING', (0,0), (-1,-1), 10),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LINEBELOW', (0,0), (0,0), 1, colors.HexColor("#991B1B")),
-    ]))
-    
-    story.append(crit_box_table)
     story.append(PageBreak())
     
     # =========================================================================
@@ -476,12 +498,12 @@ def generate_evaluation_pdf(data):
     # =========================================================================
     
     PHASES = {
-        "PRE-FLIGHT": ["FP2", "FP3", "FP4", "FP1"],
-        "TAXI": ["FP5", "FP6", "FP7", "FP8", "FP9", "FP10"],
-        "TAKEOFF": ["FP11", "FP12", "FP13", "FP14", "FP15", "FP16", "FP17", "FP18", "FP19"],
-        "CRUISE": ["FP20", "FP21", "FP22", "FP23"],
-        "APPROACH": ["FP24", "FP25", "FP26", "FP27", "FP28"],
-        "LANDING": ["FP29", "FP30", "FP31", "FP32", "FP33", "FP34"]
+        "Callsign": ["FP1"],
+        "Ground (Gate to Runway)": ["FP2", "FP3", "FP4", "FP5", "FP6", "FP7", "FP8", "FP9", "FP10"],
+        "Take-off (Entering runway to lift-off)": ["FP11", "FP12", "FP13", "FP14", "FP15", "FP16", "FP17", "FP18", "FP19"],
+        "Climbing (Till cruise)": ["FP20", "FP21", "FP22", "FP23"],
+        "Descend (cruise to touch-down)": ["FP24", "FP25", "FP26", "FP27", "FP28", "FP29", "FP30", "FP31"],
+        "Ground arrival (Exit runway to Gate)": ["FP32", "FP33", "FP34"]
     }
     
     story.append(Paragraph("DETAILED PERFORMANCE FINDINGS BY FLIGHT PHASE", ParagraphStyle('DTitle', fontName='Helvetica-Bold', fontSize=14, leading=18, textColor=primary_color)))
@@ -499,15 +521,15 @@ def generate_evaluation_pdf(data):
         phase_story = []
         phase_story.append(Paragraph(phase_name, ParagraphStyle('PhaseHeader', fontName='Helvetica-Bold', fontSize=11, leading=15, textColor=primary_color, spaceBefore=8, spaceAfter=4)))
         
-        # Split into passed and failed
+        # Split into passed (with/without comments) and failed (mistakes)
         failures = [ans for ans in phase_answers if not ans.get("is_correct", False)]
-        passes = [ans for ans in phase_answers if ans.get("is_correct", False)]
+        passes_with_comments = [ans for ans in phase_answers if ans.get("is_correct", False) and ans.get("extra_feedback")]
+        passes_no_comments = [ans for ans in phase_answers if ans.get("is_correct", False) and not ans.get("extra_feedback")]
         
-        # Render failed cards
+        # Render failed cards (Mistakes)
         for ans in failures:
-            sev = severity_map.get(ans["id"], "minor")
-            card_status_color = colors.HexColor("#B91C1C") if sev == "critical" else colors.HexColor("#D97706")
-            status_lbl_text = f"<font color='{card_status_color.hexval()}'><b>{sev.upper()} DEFICIENCY</b></font>"
+            card_status_color = colors.HexColor("#B91C1C")
+            status_lbl_text = f"<font color='{card_status_color.hexval()}'><b>MISTAKE</b></font>"
             
             hdr_left = Paragraph(f"<b>{ans['category']}</b>", card_title_style)
             hdr_right = Paragraph(status_lbl_text, ParagraphStyle('HRight', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT))
@@ -525,7 +547,7 @@ def generate_evaluation_pdf(data):
             # Selected option (Observation)
             selected_text = ans['selected_option']
             if ans.get("is_other", False) and ans.get("other_text"):
-                selected_text = f"Other: {ans['other_text']}"
+                selected_text = ans['other_text']
                 
             obs_p = Paragraph(f"<b>Issue Observed:</b> {selected_text}", body_style)
             card_elements.append(obs_p)
@@ -596,9 +618,55 @@ def generate_evaluation_pdf(data):
             phase_story.append(card_table)
             phase_story.append(Spacer(1, 8))
             
+        # Render passed cards with comments
+        for ans in passes_with_comments:
+            card_status_color = colors.HexColor("#15803D")
+            status_lbl_text = f"<font color='{card_status_color.hexval()}'><b>PASSED WITH COMMENT</b></font>"
+            
+            hdr_left = Paragraph(f"<b>{ans['category']}</b>", card_title_style)
+            hdr_right = Paragraph(status_lbl_text, ParagraphStyle('HRightPassed', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT))
+            
+            hdr_table = Table([[hdr_left, hdr_right]], colWidths=[330, 150])
+            hdr_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('LINEBELOW', (0,0), (-1,-1), 0.5, border_color),
+            ]))
+            
+            card_elements = [hdr_table, Spacer(1, 5)]
+            
+            # Selected option (Observation)
+            selected_text = ans['selected_option']
+            if ans.get("is_other", False) and ans.get("other_text"):
+                selected_text = ans['other_text']
+                
+            obs_p = Paragraph(f"<b>Observation:</b> {selected_text}", body_style)
+            card_elements.append(obs_p)
+            card_elements.append(Spacer(1, 4))
+            
+            # Custom remarks
+            rem_p = Paragraph(f"<b>Instructor Note:</b> <i>{ans['extra_feedback']}</i>", ParagraphStyle('RemPPassed', parent=body_style, textColor=colors.HexColor("#475569")))
+            card_elements.append(rem_p)
+            
+            # Outer card grid
+            card_table = Table([[card_elements]], colWidths=[496])
+            card_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,0), colors.white),
+                ('BOX', (0,0), (0,0), 1, border_color),
+                ('LINELEFT', (0,0), (0,0), 3.5, card_status_color),
+                ('TOPPADDING', (0,0), (0,0), 8),
+                ('BOTTOMPADDING', (0,0), (0,0), 8),
+                ('LEFTPADDING', (0,0), (0,0), 10),
+                ('RIGHTPADDING', (0,0), (0,0), 10),
+            ]))
+            
+            phase_story.append(card_table)
+            phase_story.append(Spacer(1, 8))
+
         # Render passed items checklist (condensed)
-        if passes:
-            pass_list = ", ".join([f"<b>{ans['category']}</b>" for ans in passes])
+        if passes_no_comments:
+            pass_list = ", ".join([f"<b>{ans['category']}</b>" for ans in passes_no_comments])
             pass_p = Paragraph(f"<font color='#15803D'><b>✓ Passed:</b></font> {pass_list}", ParagraphStyle('PassList', parent=body_style, fontSize=8.5, leading=12))
             pass_table = Table([[pass_p]], colWidths=[496])
             pass_table.setStyle(TableStyle([
@@ -616,74 +684,7 @@ def generate_evaluation_pdf(data):
         if len(phase_answers) > 0:
             story.append(KeepTogether(phase_story))
             
-    story.append(PageBreak())
-    
-    # =========================================================================
-    # FINAL PAGE: TRAINING RECOMMENDATIONS & SIGN-OFF
-    # =========================================================================
-    
-    story.append(Paragraph("RECOMMENDED TRAINING MODULES & REMEDIATION", section_title_style))
-    story.append(Paragraph("The training modules below have been dynamically generated based on checks requiring improvement.", subtitle_style))
-    story.append(Spacer(1, 6))
-    
-    # Smart recommendations map
-    recs_triggered = {}
-    
-    for ans in valid_answers:
-        if not ans.get("is_correct", False):
-            q_id = ans["id"]
-            if q_id in ["FP1", "FP5", "FP10", "FP12", "FP13", "FP25", "FP32"]:
-                if "Communication Procedures" not in recs_triggered:
-                    recs_triggered["Communication Procedures"] = []
-                recs_triggered["Communication Procedures"].append(ans["category"])
-            elif q_id in ["FP8", "FP9", "FP18", "FP34", "FP6", "FP7"]:
-                if "Ground Control & Taxi" not in recs_triggered:
-                    recs_triggered["Ground Control & Taxi"] = []
-                recs_triggered["Ground Control & Taxi"].append(ans["category"])
-            elif q_id in ["FP2", "FP3", "FP4", "FP16", "FP17", "FP20", "FP24", "FP26", "FP27", "FP33"]:
-                if "Aircraft Configuration & Systems" not in recs_triggered:
-                    recs_triggered["Aircraft Configuration & Systems"] = []
-                recs_triggered["Aircraft Configuration & Systems"].append(ans["category"])
-            elif q_id in ["FP14", "FP15", "FP19", "FP21", "FP22", "FP23", "FP28", "FP29", "FP30", "FP31"]:
-                if "Flight Stabilization & Profiles" not in recs_triggered:
-                    recs_triggered["Flight Stabilization & Profiles"] = []
-                recs_triggered["Flight Stabilization & Profiles"].append(ans["category"])
-                
-    rec_cards = []
-    if recs_triggered:
-        for idx, (module, sub_topics) in enumerate(recs_triggered.items(), 1):
-            bullets = "".join([f"• {topic}<br/>" for topic in set(sub_topics)])
-            mod_p = Paragraph(f"<b>{idx}. {module}</b><br/>{bullets}", ParagraphStyle('ModP', parent=body_style, leading=14))
-            
-            mod_card = Table([[mod_p]], colWidths=[496])
-            mod_card.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (0,0), colors.HexColor("#F8FAFC")),
-                ('BOX', (0,0), (0,0), 1, border_color),
-                ('LINELEFT', (0,0), (0,0), 4.5, primary_color),
-                ('TOPPADDING', (0,0), (0,0), 8),
-                ('BOTTOMPADDING', (0,0), (0,0), 8),
-                ('LEFTPADDING', (0,0), (0,0), 12),
-                ('RIGHTPADDING', (0,0), (0,0), 12),
-            ]))
-            rec_cards.append(mod_card)
-            rec_cards.append(Spacer(1, 8))
-    else:
-        # Perfect flight fallback
-        fallback_p = Paragraph("<b>✓ Continuous Professional Development</b><br/>No deficiencies observed during this flight. Trainee is recommended to proceed with standard flight checks and continuous proficiency reviews.", body_style)
-        fallback_card = Table([[fallback_p]], colWidths=[496])
-        fallback_card.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (0,0), colors.HexColor("#F0FDF4")),
-            ('BOX', (0,0), (0,0), 1, colors.HexColor("#BBF7D0")),
-            ('LINELEFT', (0,0), (0,0), 4.5, colors.HexColor("#15803D")),
-            ('TOPPADDING', (0,0), (0,0), 8),
-            ('BOTTOMPADDING', (0,0), (0,0), 8),
-            ('LEFTPADDING', (0,0), (0,0), 12),
-            ('RIGHTPADDING', (0,0), (0,0), 12),
-        ]))
-        rec_cards.append(fallback_card)
-        
-    story.extend(rec_cards)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 20))
     
     # Final sign-off block
     story.append(Paragraph("EVALUATION REVIEW & APPROVAL", section_title_style))
@@ -696,21 +697,31 @@ def generate_evaluation_pdf(data):
     story.append(Spacer(1, 15))
     
     # Signature rows
+    instructor_callsign = data.get("instructor_callsign", "")
+    instructor_sig_path = get_cached_signature_path(instructor_callsign)
+    manager_sig_path = get_cached_signature_path("QRV005") # Always show QRV005 (Training Manager)
+    
+    instructor_flowable = get_centered_sig_image(instructor_sig_path, cell_width=180, width=100, height=35)
+    manager_flowable = get_centered_sig_image(manager_sig_path, cell_width=180, width=100, height=35)
+    
+    flight_date_str = data.get("flight_date", "")
+    date_flowable = Paragraph(f"<b>{flight_date_str}</b>", ParagraphStyle('SigDate', fontName='Helvetica-Bold', fontSize=10, textColor=main_text_color, alignment=TA_CENTER))
+    
     sig_cells = [
-        ["", "", ""],
-        [Paragraph("INSTRUCTOR SIGNATURE", meta_label), Paragraph("TRAINING MANAGER REVIEW", meta_label), Paragraph("DATE", meta_label)],
-        ["................................................................", "................................................................", "...................................."]
+        [instructor_flowable or "", manager_flowable or "", date_flowable],
+        [Paragraph("INSTRUCTOR SIGNATURE", meta_label), Paragraph("TRAINING MANAGER SIGNATURE", meta_label), Paragraph("DATE", meta_label)]
     ]
-    sig_table = Table(sig_cells, colWidths=[180, 180, 144])
+    
+    sig_table = Table(sig_cells, colWidths=[180, 180, 144], rowHeights=[40, 15])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 2), # Padding under signature images / date
         ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('LINEBELOW', (0,0), (0,0), 1, colors.HexColor("#CBD5E1")),
-        ('LINEBELOW', (1,0), (1,0), 1, colors.HexColor("#CBD5E1")),
-        ('LINEBELOW', (2,0), (2,0), 1, colors.HexColor("#CBD5E1")),
-        ('TOPPADDING', (0,1), (-1,1), 4),
-        ('BOTTOMPADDING', (0,1), (-1,1), 8),
+        ('LINEBELOW', (0,0), (0,0), 1, colors.HexColor("#CBD5E1")), # Underline for instructor signature
+        ('LINEBELOW', (1,0), (1,0), 1, colors.HexColor("#CBD5E1")), # Underline for manager signature
+        ('LINEBELOW', (2,0), (2,0), 1, colors.HexColor("#CBD5E1")), # Underline for date
+        ('TOPPADDING', (0,1), (-1,1), 4), # Padding above labels
     ]))
     
     story.append(KeepTogether([sig_table]))

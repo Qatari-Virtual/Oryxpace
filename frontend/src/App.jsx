@@ -1,30 +1,115 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
-import { toggleSidebar } from './store/slices/appSlice'
+import axios from 'axios'
+import { toggleSidebar, setCredentials, logout } from './store/slices/appSlice'
 import { 
   LayoutDashboard, 
   Menu, 
   Database,
   PlaneTakeoff,
-  ClipboardCheck
+  ClipboardCheck,
+  LogOut,
+  Loader2
 } from 'lucide-react'
 
 // Import Pages
 import Dashboard from './pages/Dashboard'
 import EvaluatorForm from './pages/EvaluatorForm'
+import Login from './pages/Login'
 
 import { API_BASE_URL } from './config'
+
+function AuthInitializer({ children }) {
+  const dispatch = useDispatch()
+  const token = useSelector((state) => state.app.token)
+  const user = useSelector((state) => state.app.user)
+  const [initializing, setInitializing] = useState(true)
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      if (!token) {
+        // No token, clear axios headers and finish initializing
+        delete axios.defaults.headers.common['Authorization']
+        setInitializing(false)
+        return
+      }
+
+      // Configure axios global header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Session expired')
+        }
+
+        const data = await response.json()
+        dispatch(setCredentials({ user: data, token }))
+      } catch (err) {
+        console.error('Session validation failed:', err)
+        dispatch(logout())
+        delete axios.defaults.headers.common['Authorization']
+      } finally {
+        setInitializing(false)
+      }
+    }
+
+    fetchMe()
+  }, [token, dispatch])
+
+  if (initializing) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white font-sans">
+        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+        <p className="text-sm text-slate-400">Loading Oryxpace...</p>
+      </div>
+    )
+  }
+
+  return children
+}
+
+function ProtectedRoute({ children }) {
+  const { user, token } = useSelector((state) => state.app)
+
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white font-sans">
+        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+        <p className="text-sm text-slate-400">Loading profile...</p>
+      </div>
+    )
+  }
+
+  return children
+}
 
 function MainLayout() {
   const dispatch = useDispatch()
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, sidebarOpen } = useSelector((state) => state.app)
 
   const menuItems = [
     { name: 'Flight Evaluator', path: '/', icon: ClipboardCheck },
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   ]
+
+  const handleLogout = () => {
+    dispatch(logout())
+    delete axios.defaults.headers.common['Authorization']
+    navigate('/login')
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
@@ -68,18 +153,37 @@ function MainLayout() {
           </nav>
         </div>
 
-        {/* User Info */}
-        <div className="p-4 border-t border-brand-border flex items-center gap-3">
-          <div className="avatar">
-            <div className="w-10 rounded-xl border border-brand-border bg-brand-bg">
-              <img src={user.avatar} alt="avatar" />
+        {/* User Info & Logout Button */}
+        <div className="p-4 border-t border-brand-border flex flex-col gap-3 bg-brand-card/50">
+          <div className="flex items-center gap-3">
+            <div className="avatar">
+              <div className="w-10 h-10 rounded-xl border border-brand-border bg-brand-bg overflow-hidden flex items-center justify-center">
+                <img 
+                  src={user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.name}`} 
+                  alt="avatar" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.name}`;
+                  }}
+                />
+              </div>
             </div>
+            {sidebarOpen && (
+              <div className="overflow-hidden flex-1">
+                <p className="text-sm font-bold text-brand-text truncate">{user?.name}</p>
+                <p className="text-[10px] font-semibold text-slate-500 truncate">{user?.callsign} • {user?.role}</p>
+              </div>
+            )}
           </div>
           {sidebarOpen && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-brand-text truncate">{user.username}</p>
-              <p className="text-xs text-slate-500 truncate">{user.role}</p>
-            </div>
+            <button 
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/30 border border-red-900/30 hover:border-red-900/50 rounded-xl transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out</span>
+            </button>
           )}
         </div>
       </aside>
@@ -123,7 +227,19 @@ function MainLayout() {
 function App() {
   return (
     <BrowserRouter>
-      <MainLayout />
+      <AuthInitializer>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
+      </AuthInitializer>
     </BrowserRouter>
   )
 }
