@@ -386,7 +386,7 @@ function Missions() {
       {/* Header Title */}
       <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-brand-text">Missions & Events Dispatcher</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-brand-text">Mission Announcer</h1>
           <p className="text-brand-subtext mt-1">Schedule and publish official virtual airline crew events directly to Discord channels.</p>
         </div>
         

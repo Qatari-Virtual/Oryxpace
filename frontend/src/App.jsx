@@ -111,7 +111,7 @@ function MainLayout() {
   ]
 
   if (isMissionManager) {
-    menuItems.push({ name: 'Missions Dispatcher', path: '/missions', icon: Calendar })
+    menuItems.push({ name: 'Mission Announcer', path: '/missions', icon: Calendar })
   }
 
   const handleLogout = () => {
