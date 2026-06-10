@@ -10,13 +10,15 @@ import {
   PlaneTakeoff,
   ClipboardCheck,
   LogOut,
-  Loader2
+  Loader2,
+  Calendar
 } from 'lucide-react'
 
 // Import Pages
 import Dashboard from './pages/Dashboard'
 import EvaluatorForm from './pages/EvaluatorForm'
 import Login from './pages/Login'
+import Missions from './pages/Missions'
 
 import { API_BASE_URL } from './config'
 
@@ -100,10 +102,17 @@ function MainLayout() {
   const navigate = useNavigate()
   const { user, sidebarOpen } = useSelector((state) => state.app)
 
+  const userCallsignNum = user?.callsign ? user.callsign.replace(/\D/g, '') : ''
+  const isMissionManager = ["001", "002", "003", "004"].includes(userCallsignNum)
+
   const menuItems = [
     { name: 'Flight Evaluator', path: '/', icon: ClipboardCheck },
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   ]
+
+  if (isMissionManager) {
+    menuItems.push({ name: 'Missions Dispatcher', path: '/missions', icon: Calendar })
+  }
 
   const handleLogout = () => {
     dispatch(logout())
@@ -217,6 +226,7 @@ function MainLayout() {
           <Routes>
             <Route path="/" element={<EvaluatorForm />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/missions" element={isMissionManager ? <Missions /> : <Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>

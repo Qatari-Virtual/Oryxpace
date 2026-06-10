@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'apps.dashboard',
     'apps.checkride',
     'apps.authentication',
+    'apps.mission',
 ]
 
 MIDDLEWARE = [
