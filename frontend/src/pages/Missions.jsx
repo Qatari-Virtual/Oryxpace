@@ -20,8 +20,8 @@ import {
 
 // Predefined operational Discord channels list
 const OPERATIONAL_CHANNELS = [
-  { id: '1325788690227920981', name: '📢 mission' },
-  { id: '1325788690227921000', name: '📢 event-test' }
+  { id: '1325788690227920981', name: '📢 missions' },
+  { id: '1109542715999387809', name: '📢 event-test' }
 ]
 
 // Simple helper to parse comprehensive Discord Markdown and Custom Emojis into JSX/HTML
@@ -78,7 +78,7 @@ function parseDiscordMarkdown(text) {
 
   // 8. Mentions: Channel <#id>, User/Role <@id>
   html = html.replace(/&lt;#(\d+)&gt;/g, (match, id) => {
-    const name = id === '1325788690227920981' ? 'mission' : (OPERATIONAL_CHANNELS.find(c => c.id === id)?.name || id)
+    const name = id === '1325788690227920981' ? 'missions' : (OPERATIONAL_CHANNELS.find(c => c.id === id)?.name || id)
     const cleanName = String(name).replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()
     return `<span class="bg-[#5865f2]/15 text-[#c9cdfb] font-semibold px-1 rounded hover:bg-[#5865f2] hover:text-white transition-colors cursor-pointer">#${cleanName || id}</span>`
   })
