@@ -1,23 +1,15 @@
 <div>
     @if($isOpen && $task)
-        <dialog class="modal modal-open">
-            <div class="modal-box max-w-4xl p-6 space-y-6">
-                <div class="flex justify-between items-start border-b border-base-200 pb-4">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="badge badge-primary">{{ $task->kanbanColumn->name ?? 'Unassigned' }}</span>
-                            <span class="text-xs opacity-50">Task #{{ $task->id }}</span>
-                        </div>
-                        <h2 class="text-2xl font-bold mt-1">{{ $task->title }}</h2>
-                    </div>
-                    <button wire:click="closeModal" class="btn btn-sm btn-circle btn-ghost">✕</button>
+        <x-modal id="task-detail-modal" :open="true" max-width="max-w-4xl" close-action="closeModal" class="modal-open">
+            <x-slot:header>
+                <div class="flex items-center gap-2">
+                    <span class="badge badge-primary">{{ $task->kanbanColumn->name ?? 'Unassigned' }}</span>
+                    <span class="text-xs opacity-50">Task #{{ $task->id }}</span>
                 </div>
-
-                @if(session()->has('modal_message'))
-                    <div class="alert alert-success alert-sm">
-                        <span>{{ session('modal_message') }}</span>
-                    </div>
-                @endif
+                <h2 class="text-2xl font-bold mt-1">{{ $task->title }}</h2>
+            </x-slot:header>
+            <div class="space-y-6">
+                <x-toast :message="session('modal_message')" />
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="md:col-span-2 space-y-6">
@@ -116,10 +108,10 @@
                     </div>
                 </div>
 
-                <div class="modal-action border-t border-base-200 pt-3">
+                <div class="modal-actions border-t border-base-200 pt-3">
                     <button wire:click="closeModal" class="btn btn-sm">Close</button>
                 </div>
             </div>
-        </dialog>
+        </x-modal>
     @endif
 </div>

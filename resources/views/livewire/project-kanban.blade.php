@@ -1,32 +1,17 @@
-<div class="p-6 space-y-6">
-    @if (session()->has('message'))
-        <div class="alert alert-success shadow-sm">
-            <span>{{ session('message') }}</span>
-        </div>
-    @endif
-    @if (session()->has('error'))
-        <div class="alert alert-error shadow-sm">
-            <span>{{ session('error') }}</span>
-        </div>
-    @endif
+<div class="space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <x-toast :message="session('message')" />
+    <x-toast type="error" :message="session('error')" />
 
-    <div class="flex justify-between items-center bg-base-200 p-4 rounded-xl shadow-sm">
-        <div>
-            <div class="flex items-center gap-2">
-                <a href="/departments" class="btn btn-ghost btn-xs">← Back</a>
-                <h1 class="text-2xl font-bold">{{ $project->name }}</h1>
-            </div>
-            <p class="text-xs opacity-70 mt-1">Department: {{ $project->department->name ?? 'N/A' }} | Progress: {{ $project->progress_percentage }}%</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <a href="/projects/{{ $project->id }}/list" class="btn btn-sm btn-outline">List View</a>
-            <button onclick="column_modal.showModal()" class="btn btn-sm btn-primary">+ Add Column</button>
-        </div>
-    </div>
+    <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div><a href="/departments" class="mb-2 inline-flex text-xs font-bold text-brand hover:underline">← Departments</a><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">{{ $project->name }}</h1><p class="mt-1 text-sm text-sub">{{ $project->department->name ?? 'No department' }} <span class="mx-1 text-muted">·</span> {{ $project->progress_percentage }}% complete</p></div>
+        <div class="flex flex-col gap-2 sm:flex-row"><a href="/projects/{{ $project->id }}/list" class="btn btn-outline">List view</a><button data-modal-open="new-task-modal" class="btn btn-primary">+ Add task</button><button data-modal-open="column-modal" class="btn btn-outline">+ Column</button></div>
+    </header>
 
-    <div class="flex gap-4 overflow-x-auto pb-6 min-h-[600px]">
+    <div class="flex items-center justify-between rounded-2xl border border-brand-border bg-brand-pale px-4 py-3 text-xs text-sub"><span><strong class="text-brand">Board view</strong> · Select a task to inspect details.</span><span class="font-mono text-muted">{{ $columns->sum(fn ($column) => $column->tasks->count()) }} tasks</span></div>
+
+    <div class="flex min-h-[560px] gap-4 overflow-x-auto pb-6">
         @foreach($columns as $col)
-            <div class="w-80 bg-base-200 rounded-xl p-4 flex flex-col shrink-0 border border-base-300 shadow-sm">
+            <div class="w-[min(86vw,20rem)] shrink-0 rounded-2xl border border-base-300 bg-base-200 p-4 shadow-sm md:w-80">
                 <div class="flex justify-between items-center mb-3 pb-2 border-b border-base-300">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-base">{{ $col->name }}</span>
@@ -78,9 +63,17 @@
         @endforeach
     </div>
 
-    <dialog id="column_modal" class="modal">
-        <div class="modal-box">
-            <h3 class="font-bold text-lg mb-4">Add Custom Kanban Column</h3>
+    <x-modal id="new-task-modal" title="Create task" max-width="max-w-2xl">
+        <form wire:submit.prevent="createTask" class="space-y-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3"><div class="sm:col-span-2"><label class="field-label">Task title</label><input type="text" wire:model="newTaskTitle" placeholder="What needs to happen?" class="input input-bordered w-full" required /></div><div><label class="field-label">Column</label><select wire:model="newTaskColumnId" class="select select-bordered w-full" required><option value="">Select</option>@foreach($columns as $column)<option value="{{ $column->id }}">{{ $column->name }}</option>@endforeach</select></div></div>
+            <div><label class="field-label">Due date <span class="font-normal normal-case text-muted">(optional)</span></label><input type="date" wire:model="newTaskDueDate" class="input input-bordered w-full" /></div>
+            <div><label class="field-label">Description <span class="font-normal normal-case text-muted">(optional)</span></label><textarea wire:model="newTaskDescription" placeholder="Add useful context for the assignee." class="textarea textarea-bordered min-h-24 w-full"></textarea></div>
+            @error('newTaskTitle')<p class="text-error text-xs">{{ $message }}</p>@enderror @error('newTaskColumnId')<p class="text-error text-xs">{{ $message }}</p>@enderror
+            <div class="modal-actions !px-0 !pb-0"><button type="button" data-modal-close class="btn">Cancel</button><button type="submit" class="btn btn-primary">Create task</button></div>
+        </form>
+    </x-modal>
+
+    <x-modal id="column-modal" title="Add custom Kanban column">
             <form wire:submit.prevent="addColumn" class="space-y-4">
                 <div>
                     <label class="label-text">Column Name</label>
@@ -90,11 +83,12 @@
                     <label class="label-text">Required Permission / Rank (Optional)</label>
                     <input type="text" wire:model="newColumnPermission" class="input input-bordered w-full" placeholder="e.g. lead_developer" />
                 </div>
-                <div class="modal-action">
-                    <button type="button" onclick="column_modal.close()" class="btn">Cancel</button>
-                    <button type="submit" onclick="column_modal.close()" class="btn btn-primary">Add Column</button>
+                <div class="modal-actions">
+                    <button type="button" data-modal-close class="btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Column</button>
                 </div>
             </form>
-        </div>
-    </dialog>
+    </x-modal>
+
+    <livewire:task-detail-modal />
 </div>

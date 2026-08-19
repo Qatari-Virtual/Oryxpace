@@ -1,1 +1,0 @@
-# apps modular parent package

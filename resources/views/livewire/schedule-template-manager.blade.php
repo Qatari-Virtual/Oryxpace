@@ -1,100 +1,33 @@
-<div class="p-6 space-y-6">
-    @if (session()->has('message'))
-        <div class="alert alert-success shadow-sm">
-            <span>{{ session('message') }}</span>
+<div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <x-toast :message="session('message')" />
+    <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div><p class="eyebrow !ml-0">Automation / recurring work</p><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Schedule templates</h1><p class="mt-1 max-w-2xl text-sm text-sub">Turn repeatable work into reliable task queues without filling the page with configuration.</p></div>
+        <button data-modal-open="new-schedule-modal" class="btn btn-primary">+ New template</button>
+    </header>
+
+    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3"><div class="stat-card"><span class="stat-label">Templates</span><strong>{{ $schedules->count() }}</strong><span class="stat-meta">Configured automations</span></div><div class="stat-card"><span class="stat-label">Active</span><strong>{{ $schedules->where('is_active', true)->count() }}</strong><span class="stat-meta">Running on schedule</span></div><div class="stat-card col-span-2 sm:col-span-1"><span class="stat-label">Last run</span><strong class="text-lg">{{ optional($schedules->whereNotNull('last_run_at')->sortByDesc('last_run_at')->first())->last_run_at?->diffForHumans() ?? 'Never' }}</strong><span class="stat-meta">Most recent generated task</span></div></section>
+
+    <section class="surface-card overflow-hidden">
+        <div class="flex items-center justify-between border-b border-brand-border px-4 py-4 sm:px-6"><div><h2 class="font-extrabold text-main">Configured templates</h2><p class="text-xs text-muted">Run one now or pause it for later.</p></div><span class="badge badge-outline">{{ $schedules->count() }} total</span></div>
+        <div class="divide-y divide-brand-border">
+            @forelse($schedules as $sched)
+                <article class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-main">{{ $sched->title }}</h3><span class="badge badge-sm {{ $sched->is_active ? 'badge-success' : 'badge-ghost' }}">{{ $sched->is_active ? 'Active' : 'Paused' }}</span></div><div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-sub"><span>{{ $sched->project->name ?? 'No project' }}</span><code class="rounded bg-base-200 px-2 py-0.5 font-mono">{{ $sched->cron_expression }}</code><span>{{ count($sched->subtask_templates ?? []) }} sub-tasks</span><span class="text-muted">Last run: {{ $sched->last_run_at ? $sched->last_run_at->diffForHumans() : 'Never' }}</span></div></div>
+                    <div class="flex w-full gap-2 sm:w-auto"><button wire:click="runScheduleNow({{ $sched->id }})" class="btn btn-primary btn-sm flex-1 sm:flex-none">Run now</button><button wire:click="toggleSchedule({{ $sched->id }})" class="btn btn-outline btn-sm flex-1 sm:flex-none">{{ $sched->is_active ? 'Pause' : 'Activate' }}</button></div>
+                </article>
+            @empty
+                <div class="empty-state py-16"><span class="text-4xl">◷</span><h3>No templates configured</h3><p>Start with a recurring task template for routine work.</p><button data-modal-open="new-schedule-modal" class="btn btn-primary mt-3">Create template</button></div>
+            @endforelse
         </div>
-    @endif
+    </section>
 
-    <div class="bg-base-200 p-4 rounded-xl shadow-sm">
-        <h1 class="text-2xl font-bold">Schedule & Template Manager</h1>
-        <p class="text-xs opacity-70 mt-1">Configure automated recurring task creation for events, socials (POTW/LOTW), route renewals, and development routines.</p>
-    </div>
-
-    <!-- Create Schedule Template Form -->
-    <div class="card bg-base-100 p-5 border border-base-200 shadow-md">
-        <h2 class="card-title text-lg mb-4">New Task Schedule Template</h2>
+    <x-modal id="new-schedule-modal" title="New schedule template" max-width="max-w-2xl">
         <form wire:submit.prevent="createSchedule" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label-text">Task Template Title</label>
-                    <input type="text" wire:model="title" placeholder="e.g. POTW/LOTW Social Media Post" class="input input-bordered w-full mt-1" required />
-                </div>
-                <div>
-                    <label class="label-text">Target Project</label>
-                    <select wire:model="projectId" class="select select-bordered w-full mt-1" required>
-                        <option value="">Select Project</option>
-                        @foreach($projects as $p)
-                            <option value="{{ $p->id }}">{{ $p->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label-text">Cron Schedule Expression</label>
-                    <input type="text" wire:model="cronExpression" placeholder="0 0 * * * (Daily) or 0 0 * * 1 (Weekly)" class="input input-bordered w-full mt-1" required />
-                </div>
-                <div class="flex items-center gap-3 pt-6">
-                    <label class="label cursor-pointer gap-2">
-                        <span class="label-text font-medium">Is Active</span>
-                        <input type="checkbox" wire:model="isActive" class="toggle toggle-primary" />
-                    </label>
-                </div>
-            </div>
-
-            <div>
-                <label class="label-text">Sub-task Templates (One per line)</label>
-                <textarea wire:model="subtaskTemplatesText" placeholder="e.g.&#10;Graphic Creation&#10;Thread Creation&#10;Social Posting&#10;Follow Up" class="textarea textarea-bordered w-full h-24 mt-1"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Save Schedule Template</button>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label class="field-label">Task template title</label><input type="text" wire:model="title" placeholder="e.g. Weekly content review" class="input input-bordered w-full" required /></div><div><label class="field-label">Target project</label><select wire:model="projectId" class="select select-bordered w-full" required><option value="">Select project</option>@foreach($projects as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select></div></div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label class="field-label">Cron expression</label><input type="text" wire:model="cronExpression" placeholder="0 0 * * *" class="input input-bordered w-full font-mono" required /><p class="mt-1 text-[11px] text-muted">Daily at midnight UTC.</p></div><label class="flex items-center gap-3 self-end rounded-xl border border-brand-border bg-base-200 p-3 text-sm font-bold"><input type="checkbox" wire:model="isActive" class="toggle toggle-primary toggle-sm" /> Active immediately</label></div>
+            <div><label class="field-label">Sub-task templates <span class="font-normal normal-case text-muted">(one per line)</span></label><textarea wire:model="subtaskTemplatesText" placeholder="Design review&#10;Publish update&#10;Follow up" class="textarea textarea-bordered min-h-28 w-full"></textarea></div>
+            @error('title')<p class="text-error text-xs">{{ $message }}</p>@enderror @error('projectId')<p class="text-error text-xs">{{ $message }}</p>@enderror @error('cronExpression')<p class="text-error text-xs">{{ $message }}</p>@enderror
+            <div class="modal-actions !px-0 !pb-0"><button type="button" data-modal-close class="btn">Cancel</button><button type="submit" class="btn btn-primary">Save template</button></div>
         </form>
-    </div>
-
-    <!-- Existing Schedules List -->
-    <div class="card bg-base-100 border border-base-200 shadow-md p-5">
-        <h2 class="card-title text-lg mb-4">Active Schedules</h2>
-        <div class="overflow-x-auto">
-            <table class="table table-zebra w-full">
-                <thead>
-                    <tr class="bg-base-200">
-                        <th>Template Title</th>
-                        <th>Project</th>
-                        <th>Cron Schedule</th>
-                        <th>Sub-tasks</th>
-                        <th>Last Executed</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($schedules as $sched)
-                        <tr>
-                            <td class="font-bold">{{ $sched->title }}</td>
-                            <td>{{ $sched->project->name ?? 'N/A' }}</td>
-                            <td><code class="badge badge-neutral badge-sm">{{ $sched->cron_expression }}</code></td>
-                            <td>
-                                <span class="badge badge-ghost badge-sm">{{ count($sched->subtask_templates ?? []) }} subtasks</span>
-                            </td>
-                            <td class="text-xs opacity-70">{{ $sched->last_run_at ? $sched->last_run_at->diffForHumans() : 'Never' }}</td>
-                            <td>
-                                <span class="badge {{ $sched->is_active ? 'badge-success' : 'badge-error' }} badge-xs">
-                                    {{ $sched->is_active ? 'Active' : 'Disabled' }}
-                                </span>
-                            </td>
-                            <td class="flex gap-2">
-                                <button wire:click="runScheduleNow({{ $sched->id }})" class="btn btn-xs btn-primary">Run Now</button>
-                                <button wire:click="toggleSchedule({{ $sched->id }})" class="btn btn-xs btn-ghost">Toggle</button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center py-6 opacity-50">No schedule templates created yet.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+    </x-modal>
 </div>

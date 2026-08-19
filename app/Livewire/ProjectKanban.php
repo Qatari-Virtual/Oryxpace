@@ -16,6 +16,10 @@ class ProjectKanban extends Component
     public $editingColumnId = null;
     public $editColumnName = '';
     public $editColumnPermission = '';
+    public $newTaskTitle = '';
+    public $newTaskDescription = '';
+    public $newTaskDueDate = null;
+    public $newTaskColumnId = null;
 
     public function mount(Project $project)
     {
@@ -50,6 +54,39 @@ class ProjectKanban extends Component
         );
 
         session()->flash('message', "Task moved to {$targetColumn->name}.");
+    }
+
+    public function createTask()
+    {
+        $this->validate([
+            'newTaskTitle' => 'required|string|max:255',
+            'newTaskDescription' => 'nullable|string',
+            'newTaskDueDate' => 'nullable|date',
+            'newTaskColumnId' => 'nullable|integer',
+        ]);
+
+        $column = $this->project->kanbanColumns()
+            ->when($this->newTaskColumnId, fn ($query) => $query->whereKey($this->newTaskColumnId))
+            ->first();
+
+        if (!$column) {
+            session()->flash('error', 'Choose a valid Kanban column before creating the task.');
+            return;
+        }
+
+        $order = $column->tasks()->max('order_in_column') ?? -1;
+        $task = Task::create([
+            'project_id' => $this->project->id,
+            'kanban_column_id' => $column->id,
+            'title' => $this->newTaskTitle,
+            'description' => $this->newTaskDescription ?: null,
+            'due_date' => $this->newTaskDueDate ?: null,
+            'order_in_column' => $order + 1,
+        ]);
+
+        $task->logActivity(auth()->id(), 'created', "Task '{$task->title}' created.");
+        $this->reset(['newTaskTitle', 'newTaskDescription', 'newTaskDueDate', 'newTaskColumnId']);
+        session()->flash('message', 'Task created successfully.');
     }
 
     public function addColumn()

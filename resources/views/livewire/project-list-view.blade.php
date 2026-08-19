@@ -1,19 +1,16 @@
-<div class="p-6 space-y-6">
-    <div class="flex justify-between items-center bg-base-200 p-4 rounded-xl shadow-sm">
+<div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-            <div class="flex items-center gap-2">
-                <a href="/departments" class="btn btn-ghost btn-xs">← Back</a>
-                <h1 class="text-2xl font-bold">{{ $project->name }} (List View)</h1>
-            </div>
-            <p class="text-xs opacity-70 mt-1">Department: {{ $project->department->name ?? 'N/A' }}</p>
+            <a href="/projects/{{ $project->id }}/kanban" class="mb-2 inline-flex text-xs font-bold text-brand hover:underline">← Board view</a>
+            <h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">{{ $project->name }}<span class="text-sub"> / List</span></h1>
+            <p class="mt-1 text-sm text-sub">{{ $project->department->name ?? 'No department' }} · {{ $tasks->count() }} tasks</p>
         </div>
-        <div class="flex gap-2">
-            <a href="/projects/{{ $project->id }}/kanban" class="btn btn-sm btn-outline">Kanban View</a>
-        </div>
+        <a href="/projects/{{ $project->id }}/kanban" class="btn btn-primary">Open board</a>
     </div>
 
-    <div class="card bg-base-100 p-4 border border-base-200 shadow-sm space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+    <div class="surface-card p-4 sm:p-5">
+        <div class="mb-3 flex items-center justify-between"><div><h2 class="font-extrabold text-main">Find tasks</h2><p class="text-xs text-muted">Filter the current project without leaving the list.</p></div><span class="text-xs font-mono text-muted">{{ $tasks->count() }} results</span></div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search tasks..." class="input input-bordered input-sm w-full" />
 
             <select wire:model.live="filterTagId" class="select select-bordered select-sm w-full">
@@ -39,10 +36,10 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto card bg-base-100 border border-base-200 shadow-sm">
+    <div class="surface-card overflow-hidden">
         <table class="table table-zebra w-full">
             <thead>
-                <tr class="bg-base-200">
+                    <tr class="bg-brand-pale">
                     <th>Task Title</th>
                     <th>Column / Status</th>
                     <th>Tags</th>
@@ -87,10 +84,12 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="text-center py-6 opacity-50">No tasks found matching filters.</td>
+                        <td colspan="7" class="py-16 text-center"><div class="empty-state"><span class="text-3xl">⌕</span><h3>No tasks found</h3><p>Try a different search or filter combination.</p></div></td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+
+    <livewire:task-detail-modal />
 </div>

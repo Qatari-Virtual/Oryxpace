@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Models\Pilot;
 
 return [
 
@@ -64,7 +64,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            'model' => env('AUTH_MODEL', Pilot::class),
         ],
 
         // 'users' => [
