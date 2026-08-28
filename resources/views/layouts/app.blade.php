@@ -10,9 +10,9 @@
     @php
         $pilot = auth()->user();
         $navigation = [
-            ['route' => 'departments', 'label' => 'Departments', 'icon' => '▦'],
-            ['route' => 'schedules', 'label' => 'Schedules', 'icon' => '◷'],
-            ['route' => 'notifications', 'label' => 'Notifications', 'icon' => '◌'],
+            ['route' => 'departments', 'label' => 'Departments', 'icon' => 'ri-dashboard-fill'],
+            ['route' => 'schedules', 'label' => 'Schedules', 'icon' => 'ri-calendar-2-fill'],
+            ['route' => 'notifications', 'label' => 'Notifications', 'icon' => 'ri-notification-3-fill'],
         ];
     @endphp
     <body class="min-h-screen bg-layout text-main antialiased">
@@ -22,8 +22,7 @@
         <aside data-sidebar class="app-sidebar">
             <div class="sidebar-brand">
                 <a href="{{ route('departments') }}" class="brand-lockup" aria-label="Oryxpace home">
-                    <span class="brand-mark">O</span>
-                    <span data-sidebar-label class="brand-wordmark">ORYXPACE</span>
+                    <img data-sidebar-label src="{{ asset('oryxpace_logo_colored.webp') }}" alt="Oryxpace" class="h-9 w-auto object-contain">
                 </a>
             </div>
 
@@ -33,7 +32,7 @@
                     <a href="{{ route($item['route']) }}"
                        class="sidebar-link {{ request()->routeIs($item['route']) || ($item['route'] === 'departments' && request()->routeIs('projects.*')) ? 'is-active' : '' }}"
                        title="{{ $item['label'] }}">
-                        <span class="sidebar-icon" aria-hidden="true">{{ $item['icon'] }}</span>
+                         <i class="sidebar-icon {{ $item['icon'] }}" aria-hidden="true"></i>
                         <span data-sidebar-label class="sidebar-link-label">{{ $item['label'] }}</span>
                     </a>
                 @endforeach
@@ -54,22 +53,22 @@
                 </div>
                 <form method="POST" action="{{ route('logout') }}" class="ml-auto">
                     @csrf
-                    <button data-sidebar-label class="icon-button" type="submit" aria-label="Sign out" title="Sign out">↪</button>
+                    <button data-sidebar-label class="icon-button" type="submit" aria-label="Sign out" title="Sign out"><i class="ri-logout-box-r-line" aria-hidden="true"></i></button>
                 </form>
             </div>
         </aside>
 
         <div class="app-workspace">
             <header class="topbar">
-                <button data-mobile-menu class="icon-button mobile-menu" type="button" aria-label="Open navigation">☰</button>
-                <button data-sidebar-toggle class="icon-button desktop-menu" type="button" aria-label="Collapse navigation">☰</button>
+                <button data-mobile-menu class="icon-button mobile-menu" type="button" aria-label="Open navigation"><i class="ri-menu-fill" aria-hidden="true"></i></button>
+                <button data-sidebar-toggle class="icon-button desktop-menu" type="button" aria-label="Collapse navigation"><i class="ri-menu-fold-fill" aria-hidden="true"></i></button>
                 <div class="topbar-context">
                     <span class="eyebrow">Operations workspace</span>
                     <span class="topbar-page">{{ $title ?? 'Oryxpace' }}</span>
                 </div>
                 <div class="topbar-actions">
                     <span class="live-pill"><span class="status-dot"></span><span class="hidden sm:inline">LIVE</span></span>
-                    <button data-theme-toggle class="icon-button" type="button" aria-label="Toggle theme">◐</button>
+                    <button data-theme-toggle class="icon-button" type="button" aria-label="Toggle theme"><i class="ri-moon-fill" aria-hidden="true"></i></button>
                     <div class="operator-chip"><span class="operator-avatar">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span><span class="hidden sm:inline font-mono">{{ $pilot->callsign ?? 'OPS' }}</span></div>
                 </div>
             </header>

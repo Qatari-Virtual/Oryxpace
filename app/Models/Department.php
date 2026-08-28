@@ -9,6 +9,8 @@ class Department extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_departments';
+
     protected $fillable = [
         'name',
         'slug',

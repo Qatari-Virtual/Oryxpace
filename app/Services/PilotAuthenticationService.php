@@ -23,7 +23,9 @@ class PilotAuthenticationService
     private function passwordMatches(string $plain, string $stored): bool
     {
         if (preg_match('/^\$2[aby]\$/', $stored) === 1) {
-            return Hash::check($plain, $stored);
+            // The other application may use $2a$/$2b$, while Laravel's
+            // BcryptHasher only accepts its own algorithm marker.
+            return password_verify($plain, $stored);
         }
 
         if (preg_match('/^[a-f0-9]{32}$/i', $stored) === 1) {

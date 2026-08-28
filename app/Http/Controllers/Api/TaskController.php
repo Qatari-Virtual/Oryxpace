@@ -33,9 +33,9 @@ class TaskController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'project_id' => 'required|exists:projects,id',
-            'parent_id' => 'nullable|exists:tasks,id',
-            'kanban_column_id' => 'nullable|exists:kanban_columns,id',
+            'project_id' => 'required|exists:oryxpace_projects,id',
+            'parent_id' => 'nullable|exists:oryxpace_tasks,id',
+            'kanban_column_id' => 'nullable|exists:oryxpace_kanban_columns,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'resolution_user_id' => 'nullable|integer',
@@ -82,7 +82,7 @@ class TaskController extends Controller
     public function updateStatus(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
-            'kanban_column_id' => 'required|exists:kanban_columns,id',
+            'kanban_column_id' => 'required|exists:oryxpace_kanban_columns,id',
             'pilot_id' => 'nullable|integer',
         ]);
 

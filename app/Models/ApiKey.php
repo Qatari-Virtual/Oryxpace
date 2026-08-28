@@ -9,6 +9,8 @@ class ApiKey extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_api_keys';
+
     protected $fillable = [
         'name',
         'key',

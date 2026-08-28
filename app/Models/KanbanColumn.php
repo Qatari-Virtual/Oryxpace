@@ -9,6 +9,8 @@ class KanbanColumn extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_kanban_columns';
+
     protected $fillable = [
         'project_id',
         'name',

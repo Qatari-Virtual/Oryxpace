@@ -9,6 +9,8 @@ class Project extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_projects';
+
     protected $fillable = [
         'department_id',
         'name',
@@ -51,7 +53,7 @@ class Project extends Model
 
     public function subscribers()
     {
-        return $this->belongsToMany(Pilot::class, 'project_subscriptions', 'project_id', 'pilot_id');
+        return $this->belongsToMany(Pilot::class, 'oryxpace_project_subscriptions', 'project_id', 'pilot_id');
     }
 
     public function getProgressPercentageAttribute(): int

@@ -9,7 +9,7 @@ class Permission extends Model
 {
     use HasFactory;
 
-    protected $table = 'custom_permissions';
+    protected $table = 'oryxpace_custom_permissions';
 
     protected $fillable = [
         'name',
@@ -19,6 +19,6 @@ class Permission extends Model
 
     public function pilots()
     {
-        return $this->belongsToMany(Pilot::class, 'pilot_permissions', 'permission_id', 'pilot_id');
+        return $this->belongsToMany(Pilot::class, 'oryxpace_pilot_permissions', 'permission_id', 'pilot_id');
     }
 }

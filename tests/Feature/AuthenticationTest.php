@@ -53,6 +53,22 @@ class AuthenticationTest extends TestCase
         $this->assertTrue(Hash::check('secret', $pilot->fresh()->password));
     }
 
+    public function test_python_bcrypt_passwords_are_supported(): void
+    {
+        Pilot::create([
+            'name' => 'Python Pilot',
+            'callsign' => 'QRV126',
+            'email' => 'python@example.com',
+            'password' => str_replace('$2y$', '$2b$', Hash::make('secret')),
+            'status' => 1,
+        ]);
+
+        $this->postJson('/auth/login', [
+            'email' => 'python@example.com',
+            'password' => 'secret',
+        ])->assertOk();
+    }
+
     public function test_inactive_pilots_cannot_login_or_access_browser_pages(): void
     {
         Pilot::create([

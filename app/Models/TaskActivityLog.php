@@ -9,6 +9,8 @@ class TaskActivityLog extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_task_activity_logs';
+
     protected $fillable = [
         'task_id',
         'pilot_id',

@@ -9,6 +9,8 @@ class ProjectTag extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_project_tags';
+
     protected $fillable = [
         'project_id',
         'name',
@@ -23,6 +25,6 @@ class ProjectTag extends Model
 
     public function tasks()
     {
-        return $this->belongsToMany(Task::class, 'task_tags', 'project_tag_id', 'task_id');
+        return $this->belongsToMany(Task::class, 'oryxpace_task_tags', 'project_tag_id', 'task_id');
     }
 }

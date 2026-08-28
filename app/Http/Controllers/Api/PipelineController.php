@@ -96,7 +96,7 @@ class PipelineController extends Controller
     public function handleWrittenTest(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'task_id' => 'required|exists:tasks,id',
+            'task_id' => 'required|exists:oryxpace_tasks,id',
             'passed' => 'required|boolean',
             'score' => 'nullable|numeric',
         ]);
@@ -130,7 +130,7 @@ class PipelineController extends Controller
     public function handleReplayReview(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'task_id' => 'nullable|exists:tasks,id',
+            'task_id' => 'nullable|exists:oryxpace_tasks,id',
             'pilot_name' => 'required|string',
             'replay_url' => 'required|url',
             'checkride_num' => 'nullable|integer',

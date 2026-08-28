@@ -9,6 +9,8 @@ class TaskSchedule extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_task_schedules';
+
     protected $fillable = [
         'title',
         'project_id',

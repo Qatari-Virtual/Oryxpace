@@ -20,7 +20,7 @@ class ScheduleTemplateManager extends Component
     {
         $this->validate([
             'title' => 'required|string|max:255',
-            'projectId' => 'required|exists:projects,id',
+            'projectId' => 'required|exists:oryxpace_projects,id',
             'cronExpression' => 'required|string',
         ]);
 

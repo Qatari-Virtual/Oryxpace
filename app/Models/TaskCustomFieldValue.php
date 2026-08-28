@@ -9,6 +9,8 @@ class TaskCustomFieldValue extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_task_custom_field_values';
+
     protected $fillable = [
         'task_id',
         'custom_field_id',

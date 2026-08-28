@@ -16,7 +16,7 @@ class NotificationSettings extends Component
     {
         $pilotId = auth()->id() ?? 1;
 
-        $subscribed = DB::table('project_subscriptions')
+        $subscribed = DB::table('oryxpace_project_subscriptions')
             ->where('pilot_id', $pilotId)
             ->pluck('project_id')
             ->toArray();
@@ -29,7 +29,7 @@ class NotificationSettings extends Component
         $pilotId = auth()->id() ?? 1;
 
         if (in_array($projectId, $this->subscribedProjectIds)) {
-            DB::table('project_subscriptions')
+            DB::table('oryxpace_project_subscriptions')
                 ->where('pilot_id', $pilotId)
                 ->where('project_id', $projectId)
                 ->delete();
@@ -37,7 +37,7 @@ class NotificationSettings extends Component
             $this->subscribedProjectIds = array_diff($this->subscribedProjectIds, [$projectId]);
             session()->flash('message', 'Unsubscribed from project updates.');
         } else {
-            DB::table('project_subscriptions')->insert([
+            DB::table('oryxpace_project_subscriptions')->insert([
                 'pilot_id' => $pilotId,
                 'project_id' => $projectId,
                 'created_at' => now(),

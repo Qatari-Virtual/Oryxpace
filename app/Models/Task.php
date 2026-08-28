@@ -10,6 +10,8 @@ class Task extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_tasks';
+
     protected $fillable = [
         'project_id',
         'parent_id',
@@ -67,7 +69,7 @@ class Task extends Model
 
     public function assignees()
     {
-        return $this->belongsToMany(Pilot::class, 'task_assignees', 'task_id', 'pilot_id');
+        return $this->belongsToMany(Pilot::class, 'oryxpace_task_assignees', 'task_id', 'pilot_id');
     }
 
     public function resolutionUser()
@@ -82,7 +84,7 @@ class Task extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(ProjectTag::class, 'task_tags', 'task_id', 'project_tag_id');
+        return $this->belongsToMany(ProjectTag::class, 'oryxpace_task_tags', 'task_id', 'project_tag_id');
     }
 
     public function activityLogs()

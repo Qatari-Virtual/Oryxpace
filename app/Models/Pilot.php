@@ -88,7 +88,7 @@ class Pilot extends Authenticatable
 
     public function assignedTasks()
     {
-        return $this->belongsToMany(Task::class, 'task_assignees', 'pilot_id', 'task_id');
+        return $this->belongsToMany(Task::class, 'oryxpace_task_assignees', 'pilot_id', 'task_id');
     }
 
     public function resolutionTasks()
@@ -98,13 +98,13 @@ class Pilot extends Authenticatable
 
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'pilot_permissions', 'pilot_id', 'permission_id');
+        return $this->belongsToMany(Permission::class, 'oryxpace_pilot_permissions', 'pilot_id', 'permission_id');
     }
 
     public function hasPermission(string $permissionSlug): bool
     {
-        return Schema::hasTable('custom_permissions')
-            && Schema::hasTable('pilot_permissions')
+        return Schema::hasTable('oryxpace_custom_permissions')
+            && Schema::hasTable('oryxpace_pilot_permissions')
             && $this->permissions()->where('slug', $permissionSlug)->exists();
     }
 }

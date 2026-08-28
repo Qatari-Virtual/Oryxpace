@@ -9,6 +9,8 @@ class CustomField extends Model
 {
     use HasFactory;
 
+    protected $table = 'oryxpace_custom_fields';
+
     protected $fillable = [
         'project_id',
         'name',
