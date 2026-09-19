@@ -46,7 +46,12 @@
             </nav>
 
             <div class="sidebar-user">
-                <div class="avatar-placeholder">{{ collect(explode(' ', $pilot->name ?? 'Pilot'))->map(fn ($part) => substr($part, 0, 1))->take(2)->join('') }}</div>
+                @if($pilot?->getAvatarUrl(128))
+                    <img src="{{ $pilot->getAvatarUrl(128) }}" alt="{{ $pilot->name ?? 'Pilot' }}" class="avatar-placeholder avatar-img" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='grid';">
+                    <div class="avatar-placeholder" style="display: none;">{{ collect(explode(' ', $pilot->name ?? 'Pilot'))->map(fn ($part) => substr($part, 0, 1))->take(2)->join('') }}</div>
+                @else
+                    <div class="avatar-placeholder">{{ collect(explode(' ', $pilot->name ?? 'Pilot'))->map(fn ($part) => substr($part, 0, 1))->take(2)->join('') }}</div>
+                @endif
                 <div data-sidebar-label class="min-w-0">
                     <p class="user-name">{{ $pilot->name ?? 'Pilot' }}</p>
                     <p class="user-meta font-mono">{{ $pilot->callsign ?? 'UNKNOWN' }}</p>
@@ -69,7 +74,15 @@
                 <div class="topbar-actions">
                     <span class="live-pill"><span class="status-dot"></span><span class="hidden sm:inline">LIVE</span></span>
                     <button data-theme-toggle class="icon-button" type="button" aria-label="Toggle theme"><i class="ri-moon-fill" aria-hidden="true"></i></button>
-                    <div class="operator-chip"><span class="operator-avatar">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span><span class="hidden sm:inline font-mono">{{ $pilot->callsign ?? 'OPS' }}</span></div>
+                    <div class="operator-chip">
+                        @if($pilot?->getAvatarUrl(64))
+                            <img src="{{ $pilot->getAvatarUrl(64) }}" alt="{{ $pilot->callsign ?? 'OP' }}" class="operator-avatar avatar-img" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='inline-grid';">
+                            <span class="operator-avatar" style="display: none;">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span>
+                        @else
+                            <span class="operator-avatar">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span>
+                        @endif
+                        <span class="hidden sm:inline font-mono">{{ $pilot->callsign ?? 'OPS' }}</span>
+                    </div>
                 </div>
             </header>
 

@@ -64,9 +64,13 @@
                             </div>
                         </td>
                         <td>
-                            <div class="flex -space-x-2">
+                            <div class="flex items-center -space-x-1">
                                 @foreach($task->assignees as $assignee)
-                                    <span class="badge badge-outline badge-xs" title="{{ $assignee->name }}">{{ $assignee->callsign }}</span>
+                                    @if($assignee->getAvatarUrl(64))
+                                        <img src="{{ $assignee->getAvatarUrl(64) }}" alt="{{ $assignee->name }}" class="w-5 h-5 rounded-full object-cover border border-base-100" title="{{ $assignee->name }} ({{ $assignee->callsign }})">
+                                    @else
+                                        <span class="badge badge-outline badge-xs" title="{{ $assignee->name }}">{{ $assignee->callsign }}</span>
+                                    @endif
                                 @endforeach
                             </div>
                         </td>

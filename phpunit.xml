@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:5QImLVST3ISGnrVsfFdEJf3Xp+Q38fTHZKhUyDjGChs="/>
+        <env name="AUTH_JWT_SECRET" value="testing_jwt_secret_key_32_bytes_long_1234"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

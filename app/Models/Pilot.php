@@ -72,6 +72,27 @@ class Pilot extends Authenticatable
                 ->exists();
     }
 
+    public function getAvatarUrl(?int $size = 128): ?string
+    {
+        if (empty($this->ifc)) {
+            return null;
+        }
+
+        $ifc = trim((string) $this->ifc);
+
+        if (preg_match('~/u/([^/?#]+)~i', $ifc, $matches)) {
+            $username = strtolower($matches[1]);
+        } else {
+            $username = strtolower(trim(basename(rtrim($ifc, '/'))));
+        }
+
+        if (empty($username)) {
+            return null;
+        }
+
+        return "https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/{$username}/{$size}/1.png";
+    }
+
     public function toAuthProfile(): array
     {
         return [
@@ -80,6 +101,8 @@ class Pilot extends Authenticatable
             'name' => $this->name,
             'email' => $this->email,
             'status' => $this->status,
+            'ifc' => $this->ifc,
+            'avatar_url' => $this->getAvatarUrl(),
             'is_executive' => $this->isExecutive(),
             'is_admin' => $this->isAdmin(),
             'has_pilot_access' => $this->hasPilotAccess(),

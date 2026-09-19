@@ -52,10 +52,15 @@
                                         <div class="timeline-middle">
                                             <div class="w-3 h-3 bg-primary rounded-full"></div>
                                         </div>
-                                        <div class="timeline-end timeline-box bg-base-100 p-2 my-1 shadow-xs border border-base-300">
-                                            <div class="font-semibold text-secondary">{{ $log->description }}</div>
-                                            <div class="text-[10px] opacity-60">
-                                                By {{ $log->pilot->name ?? 'System/Bot' }} • {{ $log->created_at->diffForHumans() }}
+                                        <div class="timeline-end timeline-box bg-base-100 p-2 my-1 shadow-xs border border-base-300 flex items-center gap-2">
+                                            @if($log->pilot?->getAvatarUrl(64))
+                                                <img src="{{ $log->pilot->getAvatarUrl(64) }}" alt="{{ $log->pilot->name }}" class="w-6 h-6 rounded-full object-cover shrink-0">
+                                            @endif
+                                            <div>
+                                                <div class="font-semibold text-secondary">{{ $log->description }}</div>
+                                                <div class="text-[10px] opacity-60">
+                                                    By {{ $log->pilot->name ?? 'System/Bot' }} • {{ $log->created_at->diffForHumans() }}
+                                                </div>
                                             </div>
                                         </div>
                                         <hr />
@@ -74,6 +79,9 @@
                                 @foreach($pilots as $p)
                                     <label class="flex items-center gap-2 text-xs cursor-pointer">
                                         <input type="checkbox" value="{{ $p->id }}" wire:model="selectedAssignees" wire:change="updateAssignees" class="checkbox checkbox-xs checkbox-primary" />
+                                        @if($p->getAvatarUrl(64))
+                                            <img src="{{ $p->getAvatarUrl(64) }}" alt="{{ $p->name }}" class="w-5 h-5 rounded-full object-cover shrink-0">
+                                        @endif
                                         <span>{{ $p->name }} ({{ $p->callsign }})</span>
                                     </label>
                                 @endforeach
