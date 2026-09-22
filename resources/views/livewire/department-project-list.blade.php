@@ -28,13 +28,22 @@
             <article class="surface-card overflow-hidden">
                 <div class="flex flex-col gap-3 border-b border-brand-border bg-brand-pale/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <div class="flex min-w-0 items-center gap-3">
-                        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">▦</span>
+                        @if($dept->icon_url)
+                            <img src="{{ $dept->icon_url }}" alt="{{ $dept->name }}" class="h-10 w-10 shrink-0 rounded-xl object-cover border border-brand-border" />
+                        @else
+                            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">▦</span>
+                        @endif
                         <div class="min-w-0">
                             <h2 class="truncate text-lg font-extrabold text-main">{{ $dept->name }}</h2>
                             <p class="text-xs text-muted">Department workspace</p>
                         </div>
                     </div>
-                    <span class="badge badge-outline self-start text-xs sm:self-auto">{{ $dept->projects->count() }} projects</span>
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                        <button wire:click="openEditDepartment({{ $dept->id }})" data-modal-open="edit-department-modal" class="btn btn-ghost btn-xs text-xs font-semibold" title="Edit department & custom icon">
+                            ✏ Edit
+                        </button>
+                        <span class="badge badge-outline text-xs">{{ $dept->projects->count() }} projects</span>
+                    </div>
                 </div>
 
                 <div class="p-4 sm:p-6">
@@ -83,8 +92,59 @@
     <x-modal id="new-department-modal" title="Create department">
         <form wire:submit.prevent="createDepartment" class="space-y-4">
             <p class="text-sm text-sub">Create a focused workspace for a team or operational function.</p>
-            <div><label class="field-label">Department name</label><input type="text" wire:model="newDepartmentName" class="input input-bordered w-full" placeholder="e.g. Product Operations" required />@error('newDepartmentName')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror</div>
-            <div class="modal-actions !px-0 !pb-0"><button type="button" data-modal-close class="btn">Cancel</button><button type="submit" class="btn btn-primary">Create department</button></div>
+            <div>
+                <label class="field-label">Department name</label>
+                <input type="text" wire:model="newDepartmentName" class="input input-bordered w-full" placeholder="e.g. Product Operations" required />
+                @error('newDepartmentName')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="field-label">Department Icon <span class="font-normal normal-case text-muted">(optional, upload image from computer)</span></label>
+                <input type="file" wire:model="newDepartmentIcon" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" />
+                @error('newDepartmentIcon')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
+                @if ($newDepartmentIcon)
+                    <div class="mt-2 flex items-center gap-3">
+                        <span class="text-xs text-muted">Preview:</span>
+                        <img src="{{ $newDepartmentIcon->temporaryUrl() }}" class="h-10 w-10 rounded-xl object-cover border border-brand-border">
+                    </div>
+                @endif
+            </div>
+            <div class="modal-actions !px-0 !pb-0">
+                <button type="button" data-modal-close class="btn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create department</button>
+            </div>
+        </form>
+    </x-modal>
+
+    <x-modal id="edit-department-modal" title="Edit department">
+        <form wire:submit.prevent="updateDepartment" class="space-y-4">
+            <p class="text-sm text-sub">Update department details or customize its icon from your computer library.</p>
+            <div>
+                <label class="field-label">Department name</label>
+                <input type="text" wire:model="editingDepartmentName" class="input input-bordered w-full" required />
+                @error('editingDepartmentName')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="field-label">Department Icon <span class="font-normal normal-case text-muted">(select image from computer)</span></label>
+                <input type="file" wire:model="editingDepartmentIcon" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" />
+                @error('editingDepartmentIcon')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
+                @if ($editingDepartmentIcon)
+                    <div class="mt-2 flex items-center gap-3">
+                        <span class="text-xs text-muted">New preview:</span>
+                        <img src="{{ $editingDepartmentIcon->temporaryUrl() }}" class="h-10 w-10 rounded-xl object-cover border border-brand-border">
+                    </div>
+                @endif
+            </div>
+            <div class="modal-actions !px-0 !pb-0 flex items-center justify-between">
+                @if($editingDepartmentId && \App\Models\Department::find($editingDepartmentId)?->icon_url)
+                    <button type="button" wire:click="removeIcon({{ $editingDepartmentId }})" class="btn btn-ghost btn-xs text-error">Remove custom icon</button>
+                @else
+                    <div></div>
+                @endif
+                <div class="flex gap-2">
+                    <button type="button" data-modal-close class="btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
         </form>
     </x-modal>
 

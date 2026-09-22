@@ -38,4 +38,16 @@ Route::get('/schedules', ScheduleTemplateManager::class)->name('schedules');
 Route::get('/notifications', NotificationSettings::class)->name('notifications');
 });
 
+Route::get('/storage/{path}', function (string $path) {
+    $publicFile = public_path('storage/' . $path);
+    if (file_exists($publicFile) && !is_dir($publicFile)) {
+        return response()->file($publicFile);
+    }
+    $storageFile = storage_path('app/public/' . $path);
+    if (file_exists($storageFile) && !is_dir($storageFile)) {
+        return response()->file($storageFile);
+    }
+    abort(404);
+})->where('path', '.*');
+
 require __DIR__.'/api.php';
