@@ -6,47 +6,54 @@ use App\Models\Department;
 use App\Models\Project;
 use Livewire\Component;
 
-use Livewire\WithFileUploads;
-
 class DepartmentProjectList extends Component
 {
-    use WithFileUploads;
-
     public $showArchived = false;
+    public $showNewDepartmentModal = false;
     public $newDepartmentName = '';
-    public $newDepartmentIcon = null;
+    public $newDepartmentIcon = '';
+    public $newIconSearch = '';
 
+    public $showEditModal = false;
     public $editingDepartmentId = null;
     public $editingDepartmentName = '';
-    public $editingDepartmentIcon = null;
+    public $editingDepartmentIcon = '';
+    public $editIconSearch = '';
 
+    public $showNewProjectModal = false;
     public $newProjectName = '';
     public $newProjectDepartmentId = null;
     public $newProjectStartDate = null;
     public $newProjectCompletionDate = null;
     public $newProjectDescription = '';
 
+    public function openNewDepartmentModal()
+    {
+        $this->reset(['newDepartmentName', 'newDepartmentIcon', 'newIconSearch']);
+        $this->resetErrorBag(['newDepartmentName', 'newDepartmentIcon']);
+        $this->showNewDepartmentModal = true;
+    }
+
+    public function closeNewDepartmentModal()
+    {
+        $this->showNewDepartmentModal = false;
+    }
+
     public function createDepartment()
     {
         $this->validate([
             'newDepartmentName' => 'required|string|max:255',
-            'newDepartmentIcon' => 'nullable|file|mimes:png,jpg,jpeg,webp,svg,gif,ico|max:5120',
+            'newDepartmentIcon' => 'nullable|string|max:255',
         ]);
 
-        $dept = Department::create([
+        Department::create([
             'name' => $this->newDepartmentName,
             'slug' => \Illuminate\Support\Str::slug($this->newDepartmentName),
+            'icon' => $this->newDepartmentIcon ?: null,
         ]);
 
-        if ($this->newDepartmentIcon) {
-            $path = $this->newDepartmentIcon->store('departments', 'public');
-            $publicFile = public_path('storage/' . $path);
-            @mkdir(dirname($publicFile), 0755, true);
-            @copy(storage_path('app/public/' . $path), $publicFile);
-            Department::setDepartmentIcon($dept->id, $path);
-        }
-
-        $this->reset(['newDepartmentName', 'newDepartmentIcon']);
+        $this->reset(['newDepartmentName', 'newDepartmentIcon', 'newIconSearch']);
+        $this->showNewDepartmentModal = false;
         session()->flash('message', 'Department created successfully.');
     }
 
@@ -55,38 +62,58 @@ class DepartmentProjectList extends Component
         $dept = Department::findOrFail($departmentId);
         $this->editingDepartmentId = $dept->id;
         $this->editingDepartmentName = $dept->name;
-        $this->editingDepartmentIcon = null;
+        $this->editingDepartmentIcon = $dept->icon ?? '';
+        $this->editIconSearch = '';
+        $this->resetErrorBag(['editingDepartmentName', 'editingDepartmentIcon']);
+        $this->showEditModal = true;
+    }
+
+    public function closeEditDepartment()
+    {
+        $this->showEditModal = false;
+        $this->reset(['editingDepartmentId', 'editingDepartmentName', 'editingDepartmentIcon', 'editIconSearch']);
+        $this->resetErrorBag(['editingDepartmentName', 'editingDepartmentIcon']);
     }
 
     public function updateDepartment()
     {
         $this->validate([
             'editingDepartmentName' => 'required|string|max:255',
-            'editingDepartmentIcon' => 'nullable|file|mimes:png,jpg,jpeg,webp,svg,gif,ico|max:5120',
+            'editingDepartmentIcon' => 'nullable|string|max:255',
         ]);
 
         $dept = Department::findOrFail($this->editingDepartmentId);
         $dept->update([
             'name' => $this->editingDepartmentName,
             'slug' => \Illuminate\Support\Str::slug($this->editingDepartmentName),
+            'icon' => $this->editingDepartmentIcon ?: null,
         ]);
 
-        if ($this->editingDepartmentIcon) {
-            $path = $this->editingDepartmentIcon->store('departments', 'public');
-            $publicFile = public_path('storage/' . $path);
-            @mkdir(dirname($publicFile), 0755, true);
-            @copy(storage_path('app/public/' . $path), $publicFile);
-            Department::setDepartmentIcon($dept->id, $path);
-        }
-
-        $this->reset(['editingDepartmentId', 'editingDepartmentName', 'editingDepartmentIcon']);
+        $this->reset(['editingDepartmentId', 'editingDepartmentName', 'editingDepartmentIcon', 'editIconSearch']);
+        $this->showEditModal = false;
         session()->flash('message', 'Department updated successfully.');
     }
 
     public function removeIcon(int $departmentId)
     {
-        Department::removeDepartmentIcon($departmentId);
+        Department::where('id', $departmentId)->update(['icon' => null]);
+        if ($this->editingDepartmentId === $departmentId) {
+            $this->editingDepartmentIcon = '';
+        }
         session()->flash('message', 'Department icon removed.');
+    }
+
+    public function openNewProjectModal(?int $departmentId = null)
+    {
+        $this->reset(['newProjectName', 'newProjectDepartmentId', 'newProjectStartDate', 'newProjectCompletionDate', 'newProjectDescription']);
+        $this->resetErrorBag(['newProjectName', 'newProjectDepartmentId', 'newProjectCompletionDate']);
+        $this->newProjectDepartmentId = $departmentId;
+        $this->showNewProjectModal = true;
+    }
+
+    public function closeNewProjectModal()
+    {
+        $this->showNewProjectModal = false;
     }
 
     public function createProject()
@@ -117,6 +144,7 @@ class DepartmentProjectList extends Component
         }
 
         $this->reset(['newProjectName', 'newProjectDepartmentId', 'newProjectStartDate', 'newProjectCompletionDate', 'newProjectDescription']);
+        $this->showNewProjectModal = false;
         session()->flash('message', 'Project created successfully.');
     }
 
@@ -135,8 +163,20 @@ class DepartmentProjectList extends Component
             }
         }])->get();
 
+        $allIcons = Department::getAvailableIcons();
+
+        $newIcons = $this->newIconSearch !== ''
+            ? array_filter($allIcons, fn ($label, $class) => str_contains(strtolower($label), strtolower($this->newIconSearch)) || str_contains(strtolower($class), strtolower($this->newIconSearch)), ARRAY_FILTER_USE_BOTH)
+            : $allIcons;
+
+        $editIcons = $this->editIconSearch !== ''
+            ? array_filter($allIcons, fn ($label, $class) => str_contains(strtolower($label), strtolower($this->editIconSearch)) || str_contains(strtolower($class), strtolower($this->editIconSearch)), ARRAY_FILTER_USE_BOTH)
+            : $allIcons;
+
         return view('livewire.department-project-list', [
             'departments' => $departments,
+            'newIcons' => $newIcons,
+            'editIcons' => $editIcons,
         ]);
     }
 }

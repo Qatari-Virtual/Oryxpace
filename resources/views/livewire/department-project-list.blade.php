@@ -12,8 +12,8 @@
                 <span>Show archived</span>
                 <input type="checkbox" wire:model.live="showArchived" class="toggle toggle-primary toggle-sm" />
             </label>
-            <button data-modal-open="new-department-modal" class="btn btn-outline btn-primary">+ Department</button>
-            <button data-modal-open="new-project-modal" class="btn btn-primary">+ Project</button>
+            <button wire:click="openNewDepartmentModal" class="btn btn-outline btn-primary">+ Department</button>
+            <button wire:click="openNewProjectModal" class="btn btn-primary">+ Project</button>
         </div>
     </header>
 
@@ -28,8 +28,10 @@
             <article class="surface-card overflow-hidden">
                 <div class="flex flex-col gap-3 border-b border-brand-border bg-brand-pale/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <div class="flex min-w-0 items-center gap-3">
-                        @if($dept->icon_url)
-                            <img src="{{ $dept->icon_url }}" alt="{{ $dept->name }}" class="h-10 w-10 shrink-0 rounded-xl object-cover border border-brand-border" />
+                        @if($dept->icon)
+                            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">
+                                <i class="{{ $dept->icon }} text-xl"></i>
+                            </span>
                         @else
                             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">▦</span>
                         @endif
@@ -39,7 +41,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 self-start sm:self-auto">
-                        <button wire:click="openEditDepartment({{ $dept->id }})" data-modal-open="edit-department-modal" class="btn btn-ghost btn-xs text-xs font-semibold" title="Edit department & custom icon">
+                        <button wire:click="openEditDepartment({{ $dept->id }})" class="btn btn-ghost btn-xs text-xs font-semibold" title="Edit department & custom icon">
                             ✏ Edit
                         </button>
                         <span class="badge badge-outline text-xs">{{ $dept->projects->count() }} projects</span>
@@ -52,7 +54,7 @@
                             <span class="text-3xl">◌</span>
                             <h3>No projects here yet</h3>
                             <p>Create a project to give this department a shared work queue.</p>
-                            <button data-modal-open="new-project-modal" class="btn btn-sm btn-outline btn-primary mt-3">Add project</button>
+                            <button wire:click="openNewProjectModal({{ $dept->id }})" class="btn btn-sm btn-outline btn-primary mt-3">Add project</button>
                         </div>
                     @else
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -85,11 +87,11 @@
                 </div>
             </article>
         @empty
-            <div class="surface-card empty-state py-16"><span class="text-4xl">▦</span><h3>No departments yet</h3><p>Start by creating the first operational team.</p><button data-modal-open="new-department-modal" class="btn btn-primary mt-3">Create department</button></div>
+            <div class="surface-card empty-state py-16"><span class="text-4xl">▦</span><h3>No departments yet</h3><p>Start by creating the first operational team.</p><button wire:click="openNewDepartmentModal" class="btn btn-primary mt-3">Create department</button></div>
         @endforelse
     </section>
 
-    <x-modal id="new-department-modal" title="Create department">
+    <x-modal id="new-department-modal" title="Create department" max-width="max-w-2xl" :open="$showNewDepartmentModal" close-action="closeNewDepartmentModal">
         <form wire:submit.prevent="createDepartment" class="space-y-4">
             <p class="text-sm text-sub">Create a focused workspace for a team or operational function.</p>
             <div>
@@ -98,57 +100,65 @@
                 @error('newDepartmentName')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
             </div>
             <div>
-                <label class="field-label">Department Icon <span class="font-normal normal-case text-muted">(optional, upload image from computer)</span></label>
-                <input type="file" wire:model="newDepartmentIcon" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" />
+                <label class="field-label">Department Icon <span class="font-normal normal-case text-muted">(optional)</span></label>
+                <input type="text" wire:model.live.debounce.300ms="newIconSearch" class="input input-bordered input-sm w-full mt-2" placeholder="Search icons..." />
+                <div class="mt-2 grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
+                    <button type="button" wire:click="$set('newDepartmentIcon', '')" class="grid h-10 w-10 place-items-center rounded-lg border-2 {{ $newDepartmentIcon === '' ? 'border-brand bg-brand/10' : 'border-brand-border' }}" title="No icon">
+                        <span class="text-xs text-muted">—</span>
+                    </button>
+                    @foreach($newIcons as $iconClass => $iconLabel)
+                        <button type="button" wire:click="$set('newDepartmentIcon', '{{ $iconClass }}')" class="grid h-10 w-10 place-items-center rounded-lg border-2 {{ $newDepartmentIcon === $iconClass ? 'border-brand bg-brand/10' : 'border-brand-border hover:border-brand/50' }}" title="{{ $iconLabel }}">
+                            <i class="{{ $iconClass }} text-lg {{ $newDepartmentIcon === $iconClass ? 'text-brand' : 'text-main' }}"></i>
+                        </button>
+                    @endforeach
+                </div>
                 @error('newDepartmentIcon')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
-                @if ($newDepartmentIcon)
-                    <div class="mt-2 flex items-center gap-3">
-                        <span class="text-xs text-muted">Preview:</span>
-                        <img src="{{ $newDepartmentIcon->temporaryUrl() }}" class="h-10 w-10 rounded-xl object-cover border border-brand-border">
-                    </div>
-                @endif
             </div>
             <div class="modal-actions !px-0 !pb-0">
-                <button type="button" data-modal-close class="btn">Cancel</button>
+                <button type="button" wire:click="closeNewDepartmentModal" class="btn">Cancel</button>
                 <button type="submit" class="btn btn-primary">Create department</button>
             </div>
         </form>
     </x-modal>
 
-    <x-modal id="edit-department-modal" title="Edit department">
+    <x-modal id="edit-department-modal" title="Edit department" max-width="max-w-2xl" :open="$showEditModal" close-action="closeEditDepartment">
         <form wire:submit.prevent="updateDepartment" class="space-y-4">
-            <p class="text-sm text-sub">Update department details or customize its icon from your computer library.</p>
+            <p class="text-sm text-sub">Update department details or customize its icon.</p>
             <div>
                 <label class="field-label">Department name</label>
                 <input type="text" wire:model="editingDepartmentName" class="input input-bordered w-full" required />
                 @error('editingDepartmentName')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
             </div>
             <div>
-                <label class="field-label">Department Icon <span class="font-normal normal-case text-muted">(select image from computer)</span></label>
-                <input type="file" wire:model="editingDepartmentIcon" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" />
+                <label class="field-label">Department Icon</label>
+                <input type="text" wire:model.live.debounce.300ms="editIconSearch" class="input input-bordered input-sm w-full mt-2" placeholder="Search icons..." />
+                <div class="mt-2 grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
+                    <button type="button" wire:click="$set('editingDepartmentIcon', '')" class="grid h-10 w-10 place-items-center rounded-lg border-2 {{ $editingDepartmentIcon === '' ? 'border-brand bg-brand/10' : 'border-brand-border' }}" title="No icon">
+                        <span class="text-xs text-muted">—</span>
+                    </button>
+                    @foreach($editIcons as $iconClass => $iconLabel)
+                        <button type="button" wire:click="$set('editingDepartmentIcon', '{{ $iconClass }}')" class="grid h-10 w-10 place-items-center rounded-lg border-2 {{ $editingDepartmentIcon === $iconClass ? 'border-brand bg-brand/10' : 'border-brand-border hover:border-brand/50' }}" title="{{ $iconLabel }}">
+                            <i class="{{ $iconClass }} text-lg {{ $editingDepartmentIcon === $iconClass ? 'text-brand' : 'text-main' }}"></i>
+                        </button>
+                    @endforeach
+                </div>
                 @error('editingDepartmentIcon')<p class="text-error mt-1 text-xs">{{ $message }}</p>@enderror
-                @if ($editingDepartmentIcon)
-                    <div class="mt-2 flex items-center gap-3">
-                        <span class="text-xs text-muted">New preview:</span>
-                        <img src="{{ $editingDepartmentIcon->temporaryUrl() }}" class="h-10 w-10 rounded-xl object-cover border border-brand-border">
-                    </div>
-                @endif
             </div>
             <div class="modal-actions !px-0 !pb-0 flex items-center justify-between">
-                @if($editingDepartmentId && \App\Models\Department::find($editingDepartmentId)?->icon_url)
-                    <button type="button" wire:click="removeIcon({{ $editingDepartmentId }})" class="btn btn-ghost btn-xs text-error">Remove custom icon</button>
+                @if($editingDepartmentId && \App\Models\Department::find($editingDepartmentId)?->icon)
+                    <button type="button" wire:click="removeIcon({{ $editingDepartmentId }})" class="btn btn-ghost btn-xs text-error">Remove icon</button>
                 @else
                     <div></div>
                 @endif
                 <div class="flex gap-2">
-                    <button type="button" data-modal-close class="btn">Cancel</button>
+                    <button type="button" wire:click="closeEditDepartment" class="btn">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save changes</button>
                 </div>
             </div>
         </form>
     </x-modal>
 
-    <x-modal id="new-project-modal" title="Create project" max-width="max-w-2xl">
+    <x-modal id="new-project-modal" title="Create project" max-width="max-w-2xl" :open="$showNewProjectModal" close-action="closeNewProjectModal">
         <form wire:submit.prevent="createProject" class="space-y-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label class="field-label">Project name</label><input type="text" wire:model="newProjectName" class="input input-bordered w-full" placeholder="Project name" required /></div><div><label class="field-label">Department</label><select wire:model="newProjectDepartmentId" class="select select-bordered w-full" required><option value="">Select department</option>@foreach($departments as $dept)<option value="{{ $dept->id }}">{{ $dept->name }}</option>@endforeach</select></div></div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label class="field-label">Start date</label><input type="date" wire:model="newProjectStartDate" class="input input-bordered w-full" /></div><div><label class="field-label">Target completion</label><input type="date" wire:model="newProjectCompletionDate" class="input input-bordered w-full" /></div></div>
@@ -156,7 +166,7 @@
             @error('newProjectName')<p class="text-error text-xs">{{ $message }}</p>@enderror
             @error('newProjectDepartmentId')<p class="text-error text-xs">{{ $message }}</p>@enderror
             @error('newProjectCompletionDate')<p class="text-error text-xs">{{ $message }}</p>@enderror
-            <div class="modal-actions !px-0 !pb-0"><button type="button" data-modal-close class="btn">Cancel</button><button type="submit" class="btn btn-primary">Create project</button></div>
+            <div class="modal-actions !px-0 !pb-0"><button type="button" wire:click="closeNewProjectModal" class="btn">Cancel</button><button type="submit" class="btn btn-primary">Create project</button></div>
         </form>
     </x-modal>
 </div>

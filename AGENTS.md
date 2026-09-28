@@ -54,6 +54,7 @@ Use `composer run dev` when the project-level development process is preferred. 
 
 ## Conventions
 
+- **Migrations must be run manually on production.** The production database is shared by multiple applications (Oryxpace, Oryxie, Crew Center). Never run `php artisan migrate` on production — execute schema changes manually via direct SQL or a controlled deployment process.
 - Use Eloquent relationships and explicit eager loading. Avoid queries from Blade templates and Livewire loops.
 - Keep task mutations in application services/actions as the domain grows so activity logging, authorization, notifications, and broadcasts cannot be skipped.
 - Treat every task mutation as an auditable event. Activity history is user-facing, not just diagnostic logging.

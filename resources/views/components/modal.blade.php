@@ -9,8 +9,7 @@
 <dialog
     id="{{ $id }}"
     {{ $attributes->merge(['class' => 'modal']) }}
-    data-modal
-    @if($open) open @endif
+    data-modal @if($open)open @endif
 >
     <div class="modal-box {{ $maxWidth }} p-0 overflow-hidden">
         @if($title || isset($header))
