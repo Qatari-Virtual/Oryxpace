@@ -11,8 +11,6 @@
         </div>
     </header>
 
-    <div class="flex items-center justify-between rounded-2xl border border-brand-border bg-brand-pale px-4 py-3 text-xs text-sub"><span><strong class="text-brand">Board view</strong> · Select a task to inspect details.</span><span class="font-mono text-muted">{{ $columns->sum(fn ($column) => $column->tasks->count()) }} tasks</span></div>
-
     <div class="flex min-h-[560px] flex-col gap-4 md:flex-row md:overflow-x-auto md:pb-6" id="kanban-board">
         @foreach($columns as $col)
             <div class="w-full shrink-0 rounded-2xl border border-base-300 bg-base-200 p-3 shadow-sm md:w-80 md:p-4" data-column-id="{{ $col->id }}">

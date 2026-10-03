@@ -158,7 +158,7 @@ class DepartmentProjectList extends Component
     public function render()
     {
         $user = auth()->user();
-        $isAdmin = $user?->isAdmin() ?? false;
+        $isStaff = $user?->isStaff() ?? false;
 
         $query = Department::with(['projects' => function ($query) {
             if (!$this->showArchived) {
@@ -166,7 +166,7 @@ class DepartmentProjectList extends Component
             }
         }]);
 
-        if (!$isAdmin) {
+        if (!$isStaff) {
             $accessibleDeptIds = \App\Models\PermissionAccess::whereIn('permission_id', function ($sub) use ($user) {
                 $sub->select('permission_id')
                     ->from('oryxpace_pilot_permissions')

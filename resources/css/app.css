@@ -185,6 +185,16 @@ body { font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; }
 .sortable-drag {
     cursor: grabbing;
 }
+.kanban-column {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.sortable-card {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
 
 .team-section {
     border-radius: 12px;

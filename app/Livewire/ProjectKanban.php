@@ -5,20 +5,32 @@ namespace App\Livewire;
 use App\Models\KanbanColumn;
 use App\Models\Project;
 use App\Models\Task;
+use App\Services\NotificationService;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class ProjectKanban extends Component
 {
     public Project $project;
+
     public $selectedTaskId = null;
+
     public $newColumnName = '';
+
     public $newColumnPermission = '';
+
     public $editingColumnId = null;
+
     public $editColumnName = '';
+
     public $editColumnPermission = '';
+
     public $newTaskTitle = '';
+
     public $newTaskDescription = '';
+
     public $newTaskDueDate = null;
+
     public $newTaskColumnId = null;
 
     public function mount(Project $project)
@@ -33,8 +45,9 @@ class ProjectKanban extends Component
 
         if ($targetColumn->required_permission) {
             $user = auth()->user();
-            if (!$user || !$user->hasPermission($targetColumn->required_permission)) {
+            if (! $user || ! $user->hasPermission($targetColumn->required_permission)) {
                 session()->flash('error', "Permission denied: Requires '{$targetColumn->required_permission}' permission to move task into {$targetColumn->name}.");
+
                 return;
             }
         }
@@ -48,6 +61,12 @@ class ProjectKanban extends Component
                 "Task moved from '{$oldColumn}' to '{$targetColumn->name}'.",
                 $oldColumn,
                 $targetColumn->name
+            );
+
+            NotificationService::notifyTaskUpdate(
+                $task,
+                'task_moved',
+                "Task moved from '{$oldColumn}' to '{$targetColumn->name}'."
             );
         }
 
@@ -70,8 +89,9 @@ class ProjectKanban extends Component
             ->when($this->newTaskColumnId, fn ($query) => $query->whereKey($this->newTaskColumnId))
             ->first();
 
-        if (!$column) {
+        if (! $column) {
             session()->flash('error', 'Choose a valid Kanban column before creating the task.');
+
             return;
         }
 
@@ -86,6 +106,7 @@ class ProjectKanban extends Component
         ]);
 
         $task->logActivity(auth()->id(), 'created', "Task '{$task->title}' created.");
+        NotificationService::notifyTaskUpdate($task, 'task_updated', "New task created: '{$task->title}'");
         $this->reset(['newTaskTitle', 'newTaskDescription', 'newTaskDueDate', 'newTaskColumnId']);
         session()->flash('message', 'Task created successfully.');
     }
@@ -101,7 +122,7 @@ class ProjectKanban extends Component
 
         $this->project->kanbanColumns()->create([
             'name' => $this->newColumnName,
-            'slug' => \Illuminate\Support\Str::slug($this->newColumnName),
+            'slug' => Str::slug($this->newColumnName),
             'order' => $maxOrder + 1,
             'required_permission' => $this->newColumnPermission ?: null,
         ]);
@@ -120,7 +141,7 @@ class ProjectKanban extends Component
 
         $col->update([
             'name' => $this->editColumnName,
-            'slug' => \Illuminate\Support\Str::slug($this->editColumnName),
+            'slug' => Str::slug($this->editColumnName),
             'required_permission' => $this->editColumnPermission ?: null,
         ]);
 

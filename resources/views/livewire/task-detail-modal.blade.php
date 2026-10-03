@@ -75,6 +75,7 @@
                     <div class="space-y-6">
                         <div class="bg-base-200 p-4 rounded-xl border border-base-300 space-y-3">
                             <h3 class="font-bold text-sm text-primary">Assignees</h3>
+                            <button wire:click="assignMe" class="btn btn-xs btn-outline btn-primary w-full">Assign me</button>
                             <div class="space-y-2">
                                 @foreach($pilots as $p)
                                     <label class="flex items-center gap-2 text-xs cursor-pointer">

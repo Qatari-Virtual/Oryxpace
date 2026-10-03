@@ -31,6 +31,12 @@ class AuthController extends Controller
                 : back()->withErrors(['email' => 'Invalid credentials.']);
         }
 
+        if (!$pilot->isStaff() && !$pilot->staffRoles()->exists()) {
+            return $request->expectsJson()
+                ? response()->json(['message' => 'Access denied. Staff role required.'], 403)
+                : back()->withErrors(['email' => 'Access denied. You must have a staff role to access this application.']);
+        }
+
         $this->authentication->upgradeLegacyPassword($pilot, $credentials['password']);
 
         if ($request->expectsJson()) {

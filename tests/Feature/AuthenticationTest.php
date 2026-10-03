@@ -13,12 +13,18 @@ class AuthenticationTest extends TestCase
 
     public function test_api_login_uses_pilots_and_returns_a_bearer_token(): void
     {
-        Pilot::create([
+        $pilot = Pilot::create([
             'name' => 'Test Pilot',
             'callsign' => 'QRV123',
             'email' => 'pilot@example.com',
             'password' => Hash::make('secret'),
             'status' => 1,
+        ]);
+
+        \App\Models\StaffRole::create([
+            'user_id' => $pilot->id,
+            'role_name' => 'Staff Member',
+            'level' => 'Staff',
         ]);
 
         $response = $this->postJson('/auth/login', [
@@ -45,6 +51,12 @@ class AuthenticationTest extends TestCase
             'status' => 1,
         ]);
 
+        \App\Models\StaffRole::create([
+            'user_id' => $pilot->id,
+            'role_name' => 'Staff Member',
+            'level' => 'Staff',
+        ]);
+
         $this->postJson('/auth/login', [
             'email' => $pilot->email,
             'password' => 'secret',
@@ -55,12 +67,18 @@ class AuthenticationTest extends TestCase
 
     public function test_python_bcrypt_passwords_are_supported(): void
     {
-        Pilot::create([
+        $pilot = Pilot::create([
             'name' => 'Python Pilot',
             'callsign' => 'QRV126',
             'email' => 'python@example.com',
             'password' => str_replace('$2y$', '$2b$', Hash::make('secret')),
             'status' => 1,
+        ]);
+
+        \App\Models\StaffRole::create([
+            'user_id' => $pilot->id,
+            'role_name' => 'Staff Member',
+            'level' => 'Staff',
         ]);
 
         $this->postJson('/auth/login', [

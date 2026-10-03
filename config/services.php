@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'discord' => [
+        'bot_endpoint' => env('DISCORD_BOT_ENDPOINT'),
+    ],
+
 ];

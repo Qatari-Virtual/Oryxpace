@@ -23,6 +23,7 @@ class Pilot extends Authenticatable
         'email',
         'password',
         'ifc',
+        'discordid',
         'status',
     ];
 
@@ -46,6 +47,11 @@ class Pilot extends Authenticatable
     }
 
     public function isAdmin(): bool
+    {
+        return $this->isExecutive() || $this->hasPermission('admin') || $this->hasLegacyPermission('site');
+    }
+
+    public function isStaff(): bool
     {
         return $this->isExecutive() || $this->hasPermission('admin') || $this->hasLegacyPermission('admin');
     }
