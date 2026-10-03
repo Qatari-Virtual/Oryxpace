@@ -21,4 +21,19 @@ class Permission extends Model
     {
         return $this->belongsToMany(Pilot::class, 'oryxpace_pilot_permissions', 'permission_id', 'pilot_id');
     }
+
+    public function access()
+    {
+        return $this->hasMany(PermissionAccess::class, 'permission_id');
+    }
+
+    public function roleTypes()
+    {
+        return $this->hasMany(PermissionRoleType::class, 'permission_id');
+    }
+
+    public function isTeamPermission(): bool
+    {
+        return $this->roleTypes()->exists();
+    }
 }

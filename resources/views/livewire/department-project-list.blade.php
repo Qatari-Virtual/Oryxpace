@@ -3,44 +3,38 @@
 
     <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-            <p class="eyebrow !ml-0">Operations / portfolio</p>
             <h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Departments & Projects</h1>
-            <p class="mt-1 text-sm text-sub">Keep teams aligned and move active work forward.</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label class="flex min-h-10 items-center justify-between gap-3 rounded-xl border border-brand-border bg-card px-3 text-xs font-bold text-sub">
-                <span>Show archived</span>
-                <input type="checkbox" wire:model.live="showArchived" class="toggle toggle-primary toggle-sm" />
-            </label>
+            <button wire:click="$toggle('showArchived')" class="btn btn-outline btn-sm">
+                @if($showArchived)
+                    Hide archived
+                @else
+                    Show archived
+                @endif
+            </button>
             <button wire:click="openNewDepartmentModal" class="btn btn-outline btn-primary">+ Department</button>
             <button wire:click="openNewProjectModal" class="btn btn-primary">+ Project</button>
         </div>
     </header>
 
-    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div class="stat-card"><span class="stat-label">Departments</span><strong>{{ $departments->count() }}</strong><span class="stat-meta">Organized teams</span></div>
-        <div class="stat-card"><span class="stat-label">Projects</span><strong>{{ $departments->sum(fn ($department) => $department->projects->count()) }}</strong><span class="stat-meta">{{ $showArchived ? 'Including archived' : 'Active portfolio' }}</span></div>
-        <div class="stat-card col-span-2 sm:col-span-1"><span class="stat-label">Workspace mode</span><strong class="text-lg">{{ $showArchived ? 'Full history' : 'Active only' }}</strong><span class="stat-meta">Use the toggle to change scope</span></div>
-    </section>
-
     <section class="space-y-5">
         @forelse($departments as $dept)
             <article class="surface-card overflow-hidden">
-                <div class="flex flex-col gap-3 border-b border-brand-border bg-brand-pale/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <div class="flex min-w-0 items-center gap-3">
+                <div class="flex items-center gap-3 border-b border-brand-border bg-brand-pale/60 px-4 py-3">
+                    <div class="flex min-w-0 items-center gap-3 flex-1">
                         @if($dept->icon)
-                            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">
-                                <i class="{{ $dept->icon }} text-xl"></i>
+                            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-base text-white">
+                                <i class="{{ $dept->icon }} text-base"></i>
                             </span>
                         @else
-                            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-lg text-white">▦</span>
+                            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-base text-white">▦</span>
                         @endif
                         <div class="min-w-0">
-                            <h2 class="truncate text-lg font-extrabold text-main">{{ $dept->name }}</h2>
-                            <p class="text-xs text-muted">Department workspace</p>
+                            <h2 class="truncate text-base font-extrabold text-main">{{ $dept->name }}</h2>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                    <div class="flex items-center gap-2 shrink-0">
                         <button wire:click="openEditDepartment({{ $dept->id }})" class="btn btn-ghost btn-xs text-xs font-semibold" title="Edit department & custom icon">
                             ✏ Edit
                         </button>
@@ -48,37 +42,96 @@
                     </div>
                 </div>
 
-                <div class="p-4 sm:p-6">
+                <div class="p-3">
+                    @php
+                        $teamMembers = $dept->getTeamMembers();
+                    @endphp
+                    @if($teamMembers->isNotEmpty())
+                        <details class="team-section group">
+                            <summary class="team-summary cursor-pointer select-none py-1">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="team-chevron text-muted">▸</span>
+                                        <h3 class="text-xs font-bold text-main">Team</h3>
+                                        <span class="text-[10px] font-semibold text-sub">{{ $teamMembers->count() }}</span>
+                                    </div>
+                                    <div class="flex -space-x-1.5">
+                                        @foreach($teamMembers as $member)
+                                            @if($member['pilot']->getAvatarUrl(28))
+                                                <img src="{{ $member['pilot']->getAvatarUrl(28) }}" alt="{{ $member['pilot']->name }}" class="team-avatar h-6 w-6 rounded-full object-cover border border-card" title="{{ $member['pilot']->name }}">
+                                            @else
+                                                <span class="team-avatar grid h-6 w-6 place-items-center rounded-full bg-brand/20 text-[8px] font-bold text-brand border border-card" title="{{ $member['pilot']->name }}">
+                                                    {{ substr($member['pilot']->callsign ?? $member['pilot']->name, 0, 2) }}
+                                                </span>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="team-content mt-1 space-y-2">
+                                @php
+                                    $grouped = $teamMembers->groupBy(function ($m) {
+                                        return $m['roles']->first()?->role_name ?? 'Other';
+                                    });
+                                @endphp
+                                @foreach($grouped as $roleName => $members)
+                                    <div>
+                                        <h4 class="text-[10px] font-bold uppercase tracking-wider text-sub mb-1">{{ $roleName }}s</h4>
+                                        <div class="space-y-1">
+                                            @foreach($members as $member)
+                                                @php
+                                                    $level = $member['highest_level'] ?? 'Staff';
+                                                    $bgClass = match($level) {
+                                                        'Executive' => 'bg-[#5a1a3a] text-white',
+                                                        'Manager' => 'bg-[#c46a2a] text-white',
+                                                        default => 'bg-[#b8963e] text-white',
+                                                    };
+                                                @endphp
+                                                <div class="flex items-center gap-2 rounded-lg {{ $bgClass }} px-2.5 py-1.5 shadow-sm">
+                                                    @if($member['pilot']->getAvatarUrl(32))
+                                                        <img src="{{ $member['pilot']->getAvatarUrl(32) }}" alt="{{ $member['pilot']->callsign }}" class="h-8 w-8 rounded-full object-cover border-2 border-white/30" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
+                                                    @endif
+                                                    <span class="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-[10px] font-bold text-white" {{ $member['pilot']->getAvatarUrl(32) ? 'style=display:none' : '' }}>
+                                                        {{ substr($member['pilot']->callsign ?? $member['pilot']->name, 0, 2) }}
+                                                    </span>
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="text-[11px] font-bold text-white truncate">{{ $member['pilot']->name }}</p>
+                                                        <p class="text-[9px] text-white/80 uppercase tracking-wide">{{ $roleName }}</p>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endif
+
                     @if($dept->projects->isEmpty())
-                        <div class="empty-state py-10">
-                            <span class="text-3xl">◌</span>
-                            <h3>No projects here yet</h3>
-                            <p>Create a project to give this department a shared work queue.</p>
-                            <button wire:click="openNewProjectModal({{ $dept->id }})" class="btn btn-sm btn-outline btn-primary mt-3">Add project</button>
+                        <div class="empty-state py-6">
+                            <span class="text-2xl">◌</span>
+                            <h3 class="text-sm">No projects here yet</h3>
+                            <p class="text-xs">Create a project to give this department a shared work queue.</p>
+                            <button wire:click="openNewProjectModal({{ $dept->id }})" class="btn btn-xs btn-outline btn-primary mt-2">Add project</button>
                         </div>
                     @else
-                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                             @foreach($dept->projects as $proj)
                                 <div class="project-card">
-                                    <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-start justify-between gap-2">
                                         <div class="min-w-0">
-                                            <a href="/projects/{{ $proj->id }}/kanban" class="block truncate text-base font-extrabold text-brand hover:underline">{{ $proj->name }}</a>
-                                            <span class="mt-1 inline-flex rounded-full bg-base-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted">{{ $proj->is_archived ? 'Archived' : 'Active' }}</span>
+                                            <a href="/projects/{{ $proj->id }}/kanban" class="block truncate text-sm font-extrabold text-brand hover:underline">{{ $proj->name }}</a>
+                                            <span class="mt-0.5 inline-flex rounded-full bg-base-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted">{{ $proj->is_archived ? 'Archived' : 'Active' }}</span>
                                         </div>
-                                        <button wire:click="toggleArchive({{ $proj->id }})" class="btn btn-ghost btn-xs shrink-0">{{ $proj->is_archived ? 'Restore' : 'Archive' }}</button>
+                                        <button wire:click="toggleArchive({{ $proj->id }})" class="btn btn-ghost btn-xs shrink-0 text-[10px]">{{ $proj->is_archived ? 'Restore' : 'Archive' }}</button>
                                     </div>
-                                    <p class="mt-3 line-clamp-2 min-h-10 text-xs leading-relaxed text-sub">{{ $proj->description ?? 'No description provided.' }}</p>
-                                    <div class="mt-4 grid grid-cols-2 gap-3 border-y border-brand-border py-3 text-xs">
-                                        <div><span class="data-label">Start</span><strong>{{ $proj->start_date?->format('M d, Y') ?? 'Not set' }}</strong></div>
-                                        <div><span class="data-label">Target</span><strong>{{ $proj->completion_date?->format('M d, Y') ?? 'Not set' }}</strong></div>
+                                    <div class="mt-2">
+                                        <div class="mb-0.5 flex justify-between text-[9px] font-black uppercase tracking-wider text-muted"><span>Progress</span><span class="font-mono text-brand">{{ $proj->progress_percentage }}%</span></div>
+                                        <progress class="progress progress-primary w-full h-1.5" value="{{ $proj->progress_percentage }}" max="100"></progress>
                                     </div>
-                                    <div class="mt-4">
-                                        <div class="mb-1 flex justify-between text-[10px] font-black uppercase tracking-wider text-muted"><span>Progress</span><span class="font-mono text-brand">{{ $proj->progress_percentage }}%</span></div>
-                                        <progress class="progress progress-primary w-full" value="{{ $proj->progress_percentage }}" max="100"></progress>
-                                    </div>
-                                    <div class="mt-4 flex gap-2">
-                                        <a href="/projects/{{ $proj->id }}/kanban" class="btn btn-primary btn-sm flex-1">Open board</a>
-                                        <a href="/projects/{{ $proj->id }}/list" class="btn btn-outline btn-sm">List</a>
+                                    <div class="mt-2 flex gap-1.5">
+                                        <a href="/projects/{{ $proj->id }}/kanban" class="btn btn-primary btn-xs flex-1">Open board</a>
+                                        <a href="/projects/{{ $proj->id }}/list" class="btn btn-outline btn-xs">List</a>
                                     </div>
                                 </div>
                             @endforeach

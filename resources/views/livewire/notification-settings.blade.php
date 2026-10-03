@@ -1,6 +1,6 @@
 <div class="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
     <x-toast :message="session('message')" />
-    <header><p class="eyebrow !ml-0">Workspace preferences</p><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Notifications</h1><p class="mt-1 text-sm text-sub">Choose how updates reach you, then subscribe only to projects that need your attention.</p></header>
+    <header><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Notifications</h1></header>
 
     <section class="surface-card overflow-hidden">
         <div class="border-b border-brand-border px-5 py-4 sm:px-6"><h2 class="font-extrabold text-main">Delivery channels</h2><p class="mt-1 text-xs text-muted">These preferences apply to your workspace activity.</p></div>

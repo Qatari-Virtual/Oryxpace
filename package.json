@@ -19,6 +19,7 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
-        "remixicon": "^4.9.1"
+        "remixicon": "^4.9.1",
+        "sortablejs": "^1.15.7"
     }
 }

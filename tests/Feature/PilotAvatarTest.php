@@ -10,7 +10,7 @@ class PilotAvatarTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_pilot_get_avatar_url_returns_ifc_discourse_avatar_url_when_ifc_is_set(): void
+    public function test_pilot_get_avatar_url_returns_proxy_url_when_ifc_is_set(): void
     {
         $pilot = new Pilot([
             'name' => 'Divy Patel',
@@ -18,14 +18,8 @@ class PilotAvatarTest extends TestCase
             'ifc' => 'Divy_Patel',
         ]);
 
-        $this->assertEquals(
-            'https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/divy_patel/128/1.png',
-            $pilot->getAvatarUrl(128)
-        );
-        $this->assertEquals(
-            'https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/divy_patel/64/1.png',
-            $pilot->getAvatarUrl(64)
-        );
+        $this->assertStringContainsString('/avatar/divy_patel/128.png', $pilot->getAvatarUrl(128));
+        $this->assertStringContainsString('/avatar/divy_patel/64.png', $pilot->getAvatarUrl(64));
     }
 
     public function test_pilot_get_avatar_url_handles_full_urls(): void
@@ -34,9 +28,9 @@ class PilotAvatarTest extends TestCase
         $pilot2 = new Pilot(['ifc' => 'https://community.infiniteflight.com/u/arya_joshi/']);
         $pilot3 = new Pilot(['ifc' => 'http://community.infiniteflight.com/u/hypercharged']);
 
-        $this->assertEquals('https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/bumy/128/1.png', $pilot1->getAvatarUrl(128));
-        $this->assertEquals('https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/arya_joshi/128/1.png', $pilot2->getAvatarUrl(128));
-        $this->assertEquals('https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/hypercharged/128/1.png', $pilot3->getAvatarUrl(128));
+        $this->assertStringContainsString('/avatar/bumy/128.png', $pilot1->getAvatarUrl(128));
+        $this->assertStringContainsString('/avatar/arya_joshi/128.png', $pilot2->getAvatarUrl(128));
+        $this->assertStringContainsString('/avatar/hypercharged/128.png', $pilot3->getAvatarUrl(128));
     }
 
     public function test_pilot_get_avatar_url_returns_null_when_ifc_is_null_or_empty(): void
@@ -62,9 +56,6 @@ class PilotAvatarTest extends TestCase
         $profile = $pilot->toAuthProfile();
 
         $this->assertArrayHasKey('avatar_url', $profile);
-        $this->assertEquals(
-            'https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/schyllberg/128/1.png',
-            $profile['avatar_url']
-        );
+        $this->assertStringContainsString('/avatar/schyllberg/128.png', $profile['avatar_url']);
     }
 }

@@ -90,7 +90,7 @@ class Pilot extends Authenticatable
             return null;
         }
 
-        return "https://community.infiniteflight.com/user_avatar/community.infiniteflight.com/{$username}/{$size}/1.png";
+        return route('avatar.proxy', ['username' => $username, 'size' => $size]);
     }
 
     public function toAuthProfile(): array
@@ -122,6 +122,23 @@ class Pilot extends Authenticatable
     public function permissions()
     {
         return $this->belongsToMany(Permission::class, 'oryxpace_pilot_permissions', 'pilot_id', 'permission_id');
+    }
+
+    public function staffRoles()
+    {
+        return $this->hasMany(StaffRole::class, 'user_id');
+    }
+
+    public function departmentAssignments()
+    {
+        return $this->hasMany(DepartmentStaff::class, 'pilot_id');
+    }
+
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class, 'department_staff', 'pilot_id', 'department_id')
+            ->withPivot('staff_role_id')
+            ->withTimestamps();
     }
 
     public function hasPermission(string $permissionSlug): bool

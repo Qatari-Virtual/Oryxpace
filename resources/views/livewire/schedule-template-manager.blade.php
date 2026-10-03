@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
     <x-toast :message="session('message')" />
     <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div><p class="eyebrow !ml-0">Automation / recurring work</p><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Schedule templates</h1><p class="mt-1 max-w-2xl text-sm text-sub">Turn repeatable work into reliable task queues without filling the page with configuration.</p></div>
+        <div><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">Schedule templates</h1></div>
         <button data-modal-open="new-schedule-modal" class="btn btn-primary">+ New template</button>
     </header>
 

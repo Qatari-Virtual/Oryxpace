@@ -4,27 +4,31 @@
 
     <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div><a href="/departments" class="mb-2 inline-flex text-xs font-bold text-brand hover:underline">← Departments</a><h1 class="text-3xl font-extrabold tracking-tight text-brand sm:text-4xl">{{ $project->name }}</h1><p class="mt-1 text-sm text-sub">{{ $project->department->name ?? 'No department' }} <span class="mx-1 text-muted">·</span> {{ $project->progress_percentage }}% complete</p></div>
-        <div class="flex flex-col gap-2 sm:flex-row"><a href="/projects/{{ $project->id }}/list" class="btn btn-outline">List view</a><button data-modal-open="new-task-modal" class="btn btn-primary">+ Add task</button><button data-modal-open="column-modal" class="btn btn-outline">+ Column</button></div>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <a href="/projects/{{ $project->id }}/list" class="btn btn-outline btn-sm sm:btn-md">List view</a>
+            <button data-modal-open="new-task-modal" class="btn btn-primary btn-sm sm:btn-md">+ Add task</button>
+            <button data-modal-open="column-modal" class="btn btn-outline btn-sm sm:btn-md">+ Column</button>
+        </div>
     </header>
 
     <div class="flex items-center justify-between rounded-2xl border border-brand-border bg-brand-pale px-4 py-3 text-xs text-sub"><span><strong class="text-brand">Board view</strong> · Select a task to inspect details.</span><span class="font-mono text-muted">{{ $columns->sum(fn ($column) => $column->tasks->count()) }} tasks</span></div>
 
-    <div class="flex min-h-[560px] gap-4 overflow-x-auto pb-6">
+    <div class="flex min-h-[560px] flex-col gap-4 md:flex-row md:overflow-x-auto md:pb-6" id="kanban-board">
         @foreach($columns as $col)
-            <div class="w-[min(86vw,20rem)] shrink-0 rounded-2xl border border-base-300 bg-base-200 p-4 shadow-sm md:w-80">
+            <div class="w-full shrink-0 rounded-2xl border border-base-300 bg-base-200 p-3 shadow-sm md:w-80 md:p-4" data-column-id="{{ $col->id }}">
                 <div class="flex justify-between items-center mb-3 pb-2 border-b border-base-300">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-base">{{ $col->name }}</span>
-                        <span class="badge badge-sm badge-neutral">{{ $col->tasks->count() }}</span>
+                        <span class="badge badge-neutral px-2.5 py-1">{{ $col->tasks->count() }}</span>
                     </div>
                     @if($col->required_permission)
                         <span class="badge badge-warning badge-xs" title="Requires {{ $col->required_permission }} permission">🔒 {{ $col->required_permission }}</span>
                     @endif
                 </div>
 
-                <div class="space-y-3 flex-1 overflow-y-auto">
+                <div class="space-y-3 flex-1 overflow-y-auto kanban-column" data-column-id="{{ $col->id }}">
                     @foreach($col->tasks as $task)
-                        <div wire:click="openTaskDetail({{ $task->id }})" class="card bg-base-100 p-4 shadow-sm border border-base-300 cursor-pointer hover:shadow-md transition">
+                        <div data-task-id="{{ $task->id }}" wire:click="openTaskDetail({{ $task->id }})" class="card bg-base-100 p-3 shadow-sm border border-base-300 cursor-pointer hover:shadow-md transition sortable-card md:p-4">
                             <div class="flex justify-between items-start mb-2">
                                 <h3 class="font-semibold text-sm line-clamp-2">{{ $task->title }}</h3>
                                 @if($task->subtasks->count() > 0)
@@ -46,22 +50,44 @@
                                     <span class="text-accent font-medium">For: {{ $task->resolutionUser->name }}</span>
                                 @endif
                             </div>
-
-                            <div class="flex gap-1 mt-3" onclick="event.stopPropagation()">
-                                @foreach($columns as $targetCol)
-                                    @if($targetCol->id !== $col->id)
-                                        <button wire:click="moveTask({{ $task->id }}, {{ $targetCol->id }})" class="btn btn-ghost btn-xs text-[10px] border border-base-300">
-                                            → {{ $targetCol->name }}
-                                        </button>
-                                    @endif
-                                @endforeach
-                            </div>
                         </div>
                     @endforeach
                 </div>
             </div>
         @endforeach
     </div>
+
+    @script
+    <script>
+        import Sortable from 'sortablejs';
+
+        const columns = document.querySelectorAll('.kanban-column');
+        const sortables = [];
+
+        columns.forEach(column => {
+            const sortable = Sortable.create(column, {
+                group: 'kanban',
+                animation: 150,
+                ghostClass: 'opacity-30',
+                draggable: '.sortable-card',
+                delay: 150,
+                delayOnTouchOnly: true,
+                touchStartThreshold: 5,
+                onEnd: function(evt) {
+                    const taskId = evt.item.dataset.taskId;
+                    const targetColumnId = evt.to.dataset.columnId;
+                    const newOrder = evt.newIndex;
+                    $wire.moveTask(parseInt(taskId), parseInt(targetColumnId), newOrder);
+                }
+            });
+            sortables.push(sortable);
+        });
+
+        $wire.$on('task-moved', () => {
+            sortables.forEach(s => s.sort(Array.from(s.el.children).map(el => el), true));
+        });
+    </script>
+    @endscript
 
     <x-modal id="new-task-modal" title="Create task" max-width="max-w-2xl">
         <form wire:submit.prevent="createTask" class="space-y-4">

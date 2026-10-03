@@ -22,7 +22,7 @@
                         {{ $header }}
                     @endisset
                 </div>
-                <button type="button" class="btn btn-sm btn-circle btn-ghost" data-modal-close @if($closeAction) wire:click="{{ $closeAction }}" @endif aria-label="Close dialog">×</button>
+                <button type="button" class="btn btn-circle btn-ghost" data-modal-close @if($closeAction) wire:click="{{ $closeAction }}" @endif aria-label="Close dialog"><i class="ri-close-line" aria-hidden="true"></i></button>
             </div>
         @endif
 

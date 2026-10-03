@@ -120,7 +120,7 @@ class DepartmentProjectList extends Component
     {
         $this->validate([
             'newProjectName' => 'required|string|max:255',
-            'newProjectDepartmentId' => 'required|exists:departments,id',
+            'newProjectDepartmentId' => 'required|exists:oryxpace_departments,id',
             'newProjectStartDate' => 'nullable|date',
             'newProjectCompletionDate' => 'nullable|date|after_or_equal:newProjectStartDate',
         ]);
@@ -157,11 +157,26 @@ class DepartmentProjectList extends Component
 
     public function render()
     {
-        $departments = Department::with(['projects' => function ($query) {
+        $user = auth()->user();
+        $isAdmin = $user?->isAdmin() ?? false;
+
+        $query = Department::with(['projects' => function ($query) {
             if (!$this->showArchived) {
                 $query->where('is_archived', false);
             }
-        }])->get();
+        }]);
+
+        if (!$isAdmin) {
+            $accessibleDeptIds = \App\Models\PermissionAccess::whereIn('permission_id', function ($sub) use ($user) {
+                $sub->select('permission_id')
+                    ->from('oryxpace_pilot_permissions')
+                    ->where('pilot_id', $user?->id);
+            })->pluck('department_id')->filter()->unique();
+
+            $query->whereIn('id', $accessibleDeptIds);
+        }
+
+        $departments = $query->get();
 
         $allIcons = Department::getAvailableIcons();
 

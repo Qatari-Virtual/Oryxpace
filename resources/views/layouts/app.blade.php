@@ -13,6 +13,7 @@
             ['route' => 'departments', 'label' => 'Departments', 'icon' => 'ri-dashboard-fill'],
             ['route' => 'schedules', 'label' => 'Schedules', 'icon' => 'ri-calendar-2-fill'],
             ['route' => 'notifications', 'label' => 'Notifications', 'icon' => 'ri-notification-3-fill'],
+            ['route' => 'permissions', 'label' => 'Permissions', 'icon' => 'ri-shield-fill'],
         ];
     @endphp
     <body class="min-h-screen bg-layout text-main antialiased">
@@ -24,6 +25,10 @@
                 <a href="{{ route('departments') }}" class="brand-lockup" aria-label="Oryxpace home">
                     <img data-sidebar-label src="{{ asset('oryxpace_logo_colored.webp') }}" alt="Oryxpace" class="h-9 w-auto object-contain">
                 </a>
+                <div class="flex items-center gap-1">
+                    <button data-sidebar-toggle class="icon-button desktop-menu" type="button" aria-label="Collapse navigation"><i class="ri-menu-fold-fill" aria-hidden="true"></i></button>
+                    <button data-mobile-menu class="icon-button mobile-menu" type="button" aria-label="Open navigation"><i class="ri-menu-fill" aria-hidden="true"></i></button>
+                </div>
             </div>
 
             <nav class="sidebar-nav" aria-label="Main navigation">
@@ -38,11 +43,10 @@
                 @endforeach
 
                 <div class="nav-divider"></div>
-                <p data-sidebar-label class="nav-caption">Operations</p>
-                <div class="ops-callout">
-                    <span class="status-dot"></span>
-                    <span data-sidebar-label><strong>Systems nominal</strong><small>All services operational</small></span>
-                </div>
+                <button data-theme-toggle class="sidebar-link" type="button" aria-label="Toggle theme" title="Toggle theme">
+                    <i class="sidebar-icon ri-moon-fill" aria-hidden="true"></i>
+                    <span data-sidebar-label class="sidebar-link-label">Theme</span>
+                </button>
             </nav>
 
             <div class="sidebar-user">
@@ -64,28 +68,6 @@
         </aside>
 
         <div class="app-workspace">
-            <header class="topbar">
-                <button data-mobile-menu class="icon-button mobile-menu" type="button" aria-label="Open navigation"><i class="ri-menu-fill" aria-hidden="true"></i></button>
-                <button data-sidebar-toggle class="icon-button desktop-menu" type="button" aria-label="Collapse navigation"><i class="ri-menu-fold-fill" aria-hidden="true"></i></button>
-                <div class="topbar-context">
-                    <span class="eyebrow">Operations workspace</span>
-                    <span class="topbar-page">{{ $title ?? 'Oryxpace' }}</span>
-                </div>
-                <div class="topbar-actions">
-                    <span class="live-pill"><span class="status-dot"></span><span class="hidden sm:inline">LIVE</span></span>
-                    <button data-theme-toggle class="icon-button" type="button" aria-label="Toggle theme"><i class="ri-moon-fill" aria-hidden="true"></i></button>
-                    <div class="operator-chip">
-                        @if($pilot?->getAvatarUrl(64))
-                            <img src="{{ $pilot->getAvatarUrl(64) }}" alt="{{ $pilot->callsign ?? 'OP' }}" class="operator-avatar avatar-img" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='inline-grid';">
-                            <span class="operator-avatar" style="display: none;">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span>
-                        @else
-                            <span class="operator-avatar">{{ substr($pilot->callsign ?? 'OP', 0, 2) }}</span>
-                        @endif
-                        <span class="hidden sm:inline font-mono">{{ $pilot->callsign ?? 'OPS' }}</span>
-                    </div>
-                </div>
-            </header>
-
             <main class="page-content">
                 {{ $slot }}
             </main>

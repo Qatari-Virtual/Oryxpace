@@ -22,6 +22,102 @@ class Department extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function accessEntries()
+    {
+        return $this->hasMany(\App\Models\PermissionAccess::class, 'department_id');
+    }
+
+    public function teamMembers()
+    {
+        $permissionIds = $this->accessEntries()
+            ->whereNull('project_id')
+            ->pluck('permission_id');
+
+        $teamPermissionIds = \App\Models\Permission::whereIn('id', $permissionIds)
+            ->whereHas('staffRoles')
+            ->pluck('id');
+
+        $pilotIds = \Illuminate\Support\Facades\DB::table('oryxpace_pilot_permissions')
+            ->whereIn('permission_id', $teamPermissionIds)
+            ->pluck('pilot_id');
+
+        return Pilot::whereIn('id', $pilotIds)->with('staffRoles');
+    }
+
+    public function getTeamMembers()
+    {
+        $permissionIds = $this->accessEntries()
+            ->whereNull('project_id')
+            ->pluck('permission_id');
+
+        $teamPermissions = \App\Models\Permission::whereIn('id', $permissionIds)
+            ->whereHas('roleTypes')
+            ->with('roleTypes')
+            ->get();
+
+        if ($teamPermissions->isEmpty()) {
+            return collect();
+        }
+
+        $roleNameLevelPairs = $teamPermissions->flatMap(fn ($p) => $p->roleTypes)
+            ->unique(fn ($rt) => trim($rt->role_name) . '|' . trim($rt->level))
+            ->map(fn ($rt) => [trim($rt->role_name), trim($rt->level)])
+            ->all();
+
+        $matchingStaffRoles = \App\Models\StaffRole::where(function ($query) use ($roleNameLevelPairs) {
+            foreach ($roleNameLevelPairs as $pair) {
+                $query->orWhere(function ($q) use ($pair) {
+                    $q->whereRaw('TRIM(role_name) = ?', [$pair[0]])
+                      ->whereRaw('TRIM(level) = ?', [$pair[1]]);
+                });
+            }
+        })->get();
+
+        $pilotIds = $matchingStaffRoles->pluck('user_id')->unique();
+        $pilots = Pilot::whereIn('id', $pilotIds)->get()->keyBy('id');
+
+        $result = [];
+        foreach ($matchingStaffRoles as $sr) {
+            $pilot = $pilots->get($sr->user_id);
+            if (!$pilot) continue;
+
+            $roleName = trim($sr->role_name);
+            $level = trim($sr->level);
+
+            if (!isset($result[$pilot->id])) {
+                $result[$pilot->id] = [
+                    'pilot' => $pilot,
+                    'roles' => collect(),
+                    'highest_level' => $level,
+                ];
+            }
+
+            if (!$result[$pilot->id]['roles']->contains('role_name', $roleName)) {
+                $result[$pilot->id]['roles']->push((object)[
+                    'role_name' => $roleName,
+                    'level' => $level,
+                ]);
+            }
+
+            $levelPriority = ['Executive' => 1, 'Manager' => 2, 'Staff' => 3];
+            $currentPriority = $levelPriority[$result[$pilot->id]['highest_level']] ?? 99;
+            $newPriority = $levelPriority[$level] ?? 99;
+            if ($newPriority < $currentPriority) {
+                $result[$pilot->id]['highest_level'] = $level;
+            }
+        }
+
+        $levelPriority = ['Executive' => 1, 'Manager' => 2, 'Staff' => 3];
+
+        return collect($result)
+            ->sortBy(fn ($m) => [
+                $levelPriority[$m['highest_level']] ?? 99,
+                $m['highest_level'] === 'Executive' && str_contains(strtolower($m['roles']->first()?->role_name ?? ''), 'chief executive') ? 0 : 1,
+                strtolower($m['pilot']->name ?? ''),
+            ])
+            ->values();
+    }
+
     public static function getAvailableIcons(): array
     {
         return [

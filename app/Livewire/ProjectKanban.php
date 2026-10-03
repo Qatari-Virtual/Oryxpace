@@ -40,20 +40,21 @@ class ProjectKanban extends Component
         }
 
         $oldColumn = $task->kanbanColumn ? $task->kanbanColumn->name : 'None';
+
+        if ($oldColumn !== $targetColumn->name) {
+            $task->logActivity(
+                auth()->id(),
+                'status_changed',
+                "Task moved from '{$oldColumn}' to '{$targetColumn->name}'.",
+                $oldColumn,
+                $targetColumn->name
+            );
+        }
+
         $task->update([
             'kanban_column_id' => $targetColumn->id,
             'order_in_column' => $newOrder,
         ]);
-
-        $task->logActivity(
-            auth()->id(),
-            'status_changed',
-            "Task moved from '{$oldColumn}' to '{$targetColumn->name}'.",
-            $oldColumn,
-            $targetColumn->name
-        );
-
-        session()->flash('message', "Task moved to {$targetColumn->name}.");
     }
 
     public function createTask()
